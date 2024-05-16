@@ -1,9 +1,10 @@
 {
-  "lazy.nvim": { "branch": "main", "commit": "d3974346b6cef2116c8e7b08423256a834cb7cbc" },
+  "StyLua": { "branch": "main", "commit": "049bb7c2c5ff0f764eec8ab3627e114ff23ddabf" },
+  "lazy.nvim": { "branch": "main", "commit": "e44636a43376e8a1e851958f7e9cbe996751d59f" },
   "neoformat": { "branch": "master", "commit": "34d4d89fea22645b16f69f818dcb7b6b682b0c1a" },
-  "nvim-treesitter": { "branch": "master", "commit": "707b0dcf7641fa3a2aaad5053b215503f54f89aa" },
-  "nvim-web-devicons": { "branch": "master", "commit": "5b9067899ee6a2538891573500e8fd6ff008440f" },
+  "nvim-treesitter": { "branch": "master", "commit": "8012b55eee65eba1d1ee4df0a186d30e72dcbe65" },
+  "nvim-web-devicons": { "branch": "master", "commit": "e37bb1feee9e7320c76050a55443fa843b4b6f83" },
   "plenary.nvim": { "branch": "master", "commit": "08e301982b9a057110ede7a735dd1b5285eb341f" },
-  "ripgrep": { "branch": "master", "commit": "b6ef99ee554346a0870245c92112aad3838c8edd" },
+  "ripgrep": { "branch": "master", "commit": "f1d23c06e30606b2428a4e32da8f0b5069e81280" },
   "telescope.nvim": { "branch": "master", "commit": "6312868392331c9c0f22725041f1ec2bef57c751" }
 }
