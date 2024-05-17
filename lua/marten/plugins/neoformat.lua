@@ -30,5 +30,49 @@ return {
 
     -- PRETTIER, TYPESCRIPT, JAVASCRIPT
     -- CONFIG
+    -- look for project-local version of prettier first
+    vim.g.neoformat_try_node_exe = 1
+
+    vim.g.neoformat_enabled_javascript = { 'prettier' }
+    vim.g.neoformat_enabled_javascriptreact = { 'prettier' } -- JSX
+    vim.g.neoformat_enabled_typescript = { 'prettier' }
+    vim.g.neoformat_enabled_typescriptreact = { 'prettier' } -- TSX
+    vim.g.neoformat_enabled_json = { 'prettier' }
+    vim.g.neoformat_enabled_css = { 'prettier' }
+    vim.g.neoformat_enabled_scss = { 'prettier' }
+    vim.g.neoformat_enabled_less = { 'prettier' }
+    vim.g.neoformat_enabled_html = { 'prettier' }
+    vim.g.neoformat_enabled_vue = { 'prettier' }
+    vim.g.neoformat_enabled_yaml = { 'prettier' }
+    vim.g.neoformat_enabled_markdown = { 'prettier' }
+    vim.g.neoformat_enabled_graphql = { 'prettier' }
+    vim.g.neoformat_enabled_mdx = { 'prettier' }
+    vim.g.neoformat_enabled_solidity = { 'prettier' }
+
+    vim.api.nvim_create_autocmd('BufWritePre', {
+      group = format_group,
+      pattern = {
+        '*.js',
+        '*.jsx',
+        '*.ts',
+        '*.tsx',
+        '*.json',
+        '*.css',
+        '*.scss',
+        '*.less',
+        '*.html',
+        '*.vue',
+        '*.yaml',
+        '*.yml',
+        '*.md',
+        '*.graphql',
+        '*.gql',
+        '*.mdx',
+        '*.sol',
+      },
+      callback = function()
+        vim.cmd 'Neoformat stylua'
+      end,
+    })
   end,
 }
