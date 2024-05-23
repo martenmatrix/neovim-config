@@ -12,15 +12,19 @@ return {
     -- used to enable autocompletion (assign to every lsp server config)
     local capabilities = cmp_nvim_lsp.default_capabilities()
 
+    local setup_keymaps = function()
+      vim.keymap.set('n', 'K', vim.lsp.buf.hover, { buffer = 0, desc = 'Show documentation for hovered text' })
+      vim.keymap.set('n', 'gd', vim.lsp.buf.definition, { buffer = 0, desc = 'Go to definition' })
+      vim.keymap.set('n', 'gt', vim.lsp.buf.type_definition, { buffer = 0, desc = 'Go to type definition' })
+      vim.keymap.set('n', 'gi', vim.lsp.buf.implementation, { buffer = 0, desc = 'Go to implementation' })
+    end
+
     mason_lspconfig.setup_handlers {
       -- default handler
       function(server_name)
         lspconfig[server_name].setup {
           capabilities = capabilities,
-          on_attach = function()
-            -- will run inside every buffer when they first get attached to lsp
-            vim.keymap.set('n', 'K', vim.lsp.buf.hover, { buffer = 0, desc = 'Show documentation for hovered text' })
-          end,
+          on_attach = setup_keymaps,
         }
       end,
       ['lua_ls'] = function()
@@ -35,6 +39,7 @@ return {
               },
             },
           },
+          on_attach = setup_keymaps,
         }
       end,
     }
