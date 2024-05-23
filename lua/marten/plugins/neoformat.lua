@@ -78,5 +78,6 @@ return {
     -- GO
     -- CONFIG
     -- Go formatting is done with vim-golang
+    vim.keymap.set('n', '<leader>fo', '<cmd>:Neoformat<CR>', { desc = 'Format code' }) --  go to next tab
   end,
 }

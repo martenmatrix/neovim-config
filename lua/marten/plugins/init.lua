@@ -1,5 +1,5 @@
 return {
-  '0x00-ketsu/autosave.nvim',
+  -- '0x00-ketsu/autosave.nvim',
   'nvim-lua/plenary.nvim',
   'christoomey/vim-tmux-navigator',
   {
