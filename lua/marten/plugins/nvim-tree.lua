@@ -39,9 +39,10 @@ return {
       },
       filters = {
         custom = { '.DS_Store' },
+        git_ignored = true,
       },
       git = {
-        ignore = false,
+        ignore = true,
       },
     }
 
