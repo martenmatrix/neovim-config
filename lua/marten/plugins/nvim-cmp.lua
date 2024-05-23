@@ -15,6 +15,7 @@ return {
     local cmp = require 'cmp'
     local luasnip = require 'luasnip'
 
+    vim.opt.completeopt = { 'menu', 'menuone', 'noselect' }
     cmp.setup {
       snippet = {
         -- REQUIRED - you must specify a snippet engine
@@ -40,16 +41,38 @@ return {
           else
             fallback()
           end
-        end),
+        end, { 'i', 's' }),
+        ['<S-Tab>'] = cmp.mapping(function(fallback)
+          if cmp.visible() then
+            cmp.select_prev_item()
+          else
+            fallback()
+          end
+        end, { 'i', 's' }),
         ['<C-Space>'] = cmp.mapping.complete(),
         ['<C-e>'] = cmp.mapping.abort(),
         ['<CR>'] = cmp.mapping.confirm { select = true }, -- Accept currently selected item. Set `select` to `false` to only confirm explicitly selected items.
       },
       sources = {
-        { name = 'nvim_lsp' },
-        { name = 'luasnip' }, -- For luasnip users.
-        { name = 'buffer' },
+        -- order of sources will determine priority
         { name = 'path' },
+        { name = 'nvim_lsp' },
+        { name = 'buffer' },
+        { name = 'luasnip' }, -- For luasnip users.
+      },
+      formatting = {
+        fields = { 'menu', 'abbr', 'kind' },
+        format = function(entry, item)
+          local menu_icon = {
+            nvim_lsp = 'λ',
+            luasnip = '⋗',
+            buffer = 'Ω',
+            path = '🖫',
+          }
+
+          item.menu = menu_icon[entry.source.name]
+          return item
+        end,
       },
     }
   end,
