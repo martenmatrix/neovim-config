@@ -77,7 +77,17 @@ return {
 
     -- GO
     -- CONFIG
-    -- Go formatting is done with vim-golang
+    vim.g.neoformat_enabled_lua = { 'go-fmt' }
+
+    -- auto-format lua on save
+    vim.api.nvim_create_autocmd('BufWritePre', {
+      group = format_group,
+      pattern = '*.go',
+      callback = function()
+        vim.cmd 'Neoformat go-fmt'
+      end,
+    })
+
     vim.keymap.set('n', '<leader>fo', '<cmd>:Neoformat<CR>', { desc = 'Format code' }) --  go to next tab
   end,
 }
