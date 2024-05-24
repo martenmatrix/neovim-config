@@ -6,6 +6,7 @@ return {
     'BurntSushi/ripgrep', --makes telescope respect .gitignore files
     'nvim-treesitter/nvim-treesitter',
     'nvim-tree/nvim-web-devicons',
+    'molecule-man/telescope-menufacture', -- context menu for options
   },
   config = function()
     local telescope = require 'telescope'
@@ -22,19 +23,29 @@ return {
           },
         },
       },
+
+      extensions = {
+        menufacture = {
+          mappings = {
+            main_menu = { [{ 'i', 'n' }] = '<C-S>' }, -- open options context menu
+          },
+        },
+      },
     }
+
+    telescope.load_extension 'menufacture'
 
     -- set keymaps
     local keymap = vim.keymap -- for conciseness
 
+    keymap.set('n', '<leader>ff', telescope.extensions.menufacture.find_files, { desc = 'Fuzzy find files' })
+    keymap.set('n', '<leader>fr', '<cmd>Telescope oldfiles', { desc = 'Fuzzy find recent files' })
+    keymap.set('n', '<leader>fs', telescope.extensions.menufacture.live_grep, { desc = 'Find string in cwd' })
     keymap.set(
       'n',
-      '<leader>ff',
-      '<cmd>lua require("telescope.builtin").find_files({ cwd = vim.fn.getcwd() })<CR>',
-      { desc = 'Fuzzy find files in cwd' }
+      '<leader>fc',
+      telescope.extensions.menufacture.grep_string,
+      { desc = 'Find string under cursor in cwd' }
     )
-    keymap.set('n', '<leader>fr', '<cmd>Telescope oldfiles<cr>', { desc = 'Fuzzy find recent files' })
-    keymap.set('n', '<leader>fs', '<cmd>Telescope live_grep<cr>', { desc = 'Find string in cwd' })
-    keymap.set('n', '<leader>fc', '<cmd>Telescope grep_string<cr>', { desc = 'Find string under cursor in cwd' })
   end,
 }
