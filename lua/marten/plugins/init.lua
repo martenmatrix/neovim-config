@@ -10,4 +10,11 @@ return {
   },
   { 'wakatime/vim-wakatime', lazy = false },
   'fatih/vim-go',
+  {
+    'windwp/nvim-autopairs',
+    event = 'InsertEnter',
+    config = true,
+    -- use opts = {} for passing setup options
+    -- this is equalent to setup({}) function
+  },
 }
