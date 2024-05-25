@@ -5,3 +5,6 @@ You'll have to download a [NerdFont](https://www.nerdfonts.com/font-downloads) i
 Some formatters are pre-installed like `stylua` for Lua, which automatically run on save. You need to install the following formatters, if you want to use them:
 **Lua**:
 - `brew install stylua`
+
+If you want to use the debugger, you'll have to install some tools depending on the language you want to debug:
+- (Go)[https://github.com/mfussenegger/nvim-dap/wiki/Debug-Adapter-installation#go]
