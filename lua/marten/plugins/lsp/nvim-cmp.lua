@@ -72,6 +72,9 @@ return {
           return item
         end,
       },
+      view = {
+        docs = { auto_open = true },
+      },
     }
 
     -- `/` cmdline setup.
