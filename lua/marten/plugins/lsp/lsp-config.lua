@@ -14,6 +14,7 @@ return {
 
     -- used to enable autocompletion (assign to every lsp server config)
     local capabilities = coq.lsp_ensure_capabilities()
+    vim.cmd 'COQnow --shut-up'
 
     local setup_keymaps = function()
       vim.keymap.set('n', 'K', vim.lsp.buf.hover, { buffer = 0, desc = 'Show documentation for hovered text' })
