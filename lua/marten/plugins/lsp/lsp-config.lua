@@ -2,15 +2,18 @@ return {
   'nvim-lspconfig',
   dependencies = {
     'williamboman/mason-lspconfig.nvim',
-    'hrsh7th/cmp-nvim-lsp',
+    'ms-jpq/coq_nvim',
+    'ms-jpq/coq.artifacts',
+    'ms-jpq/coq.thirdparty',
   },
   config = function()
     local lspconfig = require 'lspconfig'
     local mason_lspconfig = require 'mason-lspconfig'
-    local cmp_nvim_lsp = require 'cmp_nvim_lsp'
+    --    local cmp_nvim_lsp = require 'cmp_nvim_lsp'
+    local coq = require 'coq'
 
     -- used to enable autocompletion (assign to every lsp server config)
-    local capabilities = cmp_nvim_lsp.default_capabilities()
+    local capabilities = coq.lsp_ensure_capabilities()
 
     local setup_keymaps = function()
       vim.keymap.set('n', 'K', vim.lsp.buf.hover, { buffer = 0, desc = 'Show documentation for hovered text' })
