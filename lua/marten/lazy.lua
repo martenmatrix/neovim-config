@@ -10,6 +10,9 @@ if not (vim.uv or vim.loop).fs_stat(lazypath) then
   }
 end
 vim.opt.rtp:prepend(lazypath)
+vim.g.coq_settings = {
+  auto_start = 'shut-up',
+}
 
 require('lazy').setup {
   { import = 'marten.plugins' },
