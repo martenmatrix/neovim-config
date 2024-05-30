@@ -20,10 +20,11 @@ return {
     vim.g.neoformat_enabled_lua = { 'stylua' }
 
     -- auto-format lua on save
-    vim.api.nvim_create_autocmd('BufWritePre', {
+    vim.api.nvim_create_autocmd('CursorHold', {
       group = format_group,
       pattern = '*.lua',
       callback = function()
+        vim.cmd 'undojoin'
         vim.cmd 'Neoformat stylua'
       end,
     })
@@ -49,7 +50,7 @@ return {
     vim.g.neoformat_enabled_mdx = { 'prettier' }
     vim.g.neoformat_enabled_solidity = { 'prettier' }
 
-    vim.api.nvim_create_autocmd('BufWritePre', {
+    vim.api.nvim_create_autocmd('CursorHold', {
       group = format_group,
       pattern = {
         '*.js',
@@ -71,6 +72,7 @@ return {
         '*.sol',
       },
       callback = function()
+        vim.cmd 'undojoin'
         vim.cmd 'Neoformat stylua'
       end,
     })
@@ -80,10 +82,11 @@ return {
     vim.g.neoformat_enabled_lua = { 'go-fmt' }
 
     -- auto-format lua on save
-    vim.api.nvim_create_autocmd('BufWritePre', {
+    vim.api.nvim_create_autocmd('CursorHold', {
       group = format_group,
       pattern = '*.go',
       callback = function()
+        vim.cmd 'undojoin'
         vim.cmd 'Neoformat go-fmt'
       end,
     })
