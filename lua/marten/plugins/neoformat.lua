@@ -24,7 +24,7 @@ return {
       group = format_group,
       pattern = '*.lua',
       callback = function()
-        vim.cmd 'undojoin'
+        vim.cmd 'silent undojoin'
         vim.cmd 'silent Neoformat stylua'
       end,
     })
@@ -72,7 +72,7 @@ return {
         '*.sol',
       },
       callback = function()
-        vim.cmd 'undojoin'
+        vim.cmd 'silent undojoin'
         vim.cmd 'silent Neoformat stylua'
       end,
     })
@@ -86,7 +86,7 @@ return {
       group = format_group,
       pattern = '*.go',
       callback = function()
-        vim.cmd 'undojoin'
+        vim.cmd 'silent undojoin'
         vim.cmd 'silent Neoformat go-fmt'
       end,
     })
