@@ -39,7 +39,7 @@ return {
     local keymap = vim.keymap -- for conciseness
 
     keymap.set('n', '<leader>ff', telescope.extensions.menufacture.find_files, { desc = 'Fuzzy find files' })
-    keymap.set('n', '<leader>fr', '<cmd>Telescope oldfiles', { desc = 'Fuzzy find recent files' })
+    keymap.set('n', '<leader>fr', telescope.extensions.menufacture.oldfiles, { desc = 'Fuzzy find recent files' })
     keymap.set('n', '<leader>fs', telescope.extensions.menufacture.live_grep, { desc = 'Find string in cwd' })
     keymap.set(
       'n',
