@@ -64,6 +64,20 @@ return {
           on_attach = setup_keymaps,
         }
       end,
+      ['tsserver'] = function()
+        lspconfig['tsserver'].setup {
+          capabilities = capabilities,
+          init_options = {
+            plugins = {
+              {
+                name = '@styled/typescript-styled-plugin',
+                location = '/Users/martenb/.nvm/versions/node/v22.0.0/lib/node_modules',
+              },
+            },
+          },
+          on_attach = setup_keymaps,
+        }
+      end,
     }
   end,
 }

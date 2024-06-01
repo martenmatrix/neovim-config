@@ -9,3 +9,9 @@ Some formatters are pre-configured like `stylua` for Lua. You need to install th
 
 If you want to use the debugger, you'll have to install some tools depending on the language you want to debug:
 - [Go](https://github.com/mfussenegger/nvim-dap/wiki/Debug-Adapter-installation#go)
+
+If you want to use `styled-components` with Typescript, you'll have to install the TypeScript Styled Plugin locally in your project and configure the tsconfig.json [like this](https://github.com/styled-components/typescript-styled-plugin?tab=readme-ov-file#with-vs-code) or you'll have to configure it globally the following way:
+
+1. `npm install -g @styled/typescript-styled-plugin`
+2. Lookup path, which contains your globally installed node_modules with `npm root -g`
+3. Specify path in config at `lua/marten/plugins/lsp/lsp-config.lua` under `tsserver`
