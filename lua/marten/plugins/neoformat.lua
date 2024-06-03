@@ -23,9 +23,9 @@ return {
     vim.api.nvim_create_autocmd('CursorHold', {
       group = format_group,
       pattern = '*.lua',
+
       callback = function()
-        vim.cmd 'silent undojoin'
-        vim.cmd 'silent Neoformat stylua'
+        vim.cmd [[try | undojoin | silent Neoformat stylua | catch /E790/ | silent Neoformat stylua | endtry]]
       end,
     })
 
@@ -72,8 +72,7 @@ return {
         '*.sol',
       },
       callback = function()
-        vim.cmd 'silent undojoin'
-        vim.cmd 'silent Neoformat prettier'
+        vim.cmd [[try | undojoin | silent Neoformat prettier | catch /E790/ | silent Neoformat prettier | endtry]]
       end,
     })
 
@@ -86,8 +85,7 @@ return {
       group = format_group,
       pattern = '*.go',
       callback = function()
-        vim.cmd 'silent undojoin'
-        vim.cmd 'silent Neoformat go-fmt'
+        vim.cmd [[try | undojoin | silent Neoformat go-fmt | catch /E790/ | silent Neoformat go-fmt | endtry]]
       end,
     })
 
