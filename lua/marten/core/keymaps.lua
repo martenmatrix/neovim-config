@@ -22,6 +22,6 @@ for i = 1, 9 do
     'n',
     '<leader>' .. i .. '',
     ':tabn ' .. i .. '<CR>',
-    { silent = true, desc = 'Move to tab' .. i .. '' }
+    { silent = true, desc = 'Move to tab ' .. i .. '' }
   )
 end
