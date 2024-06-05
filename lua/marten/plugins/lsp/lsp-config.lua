@@ -32,6 +32,10 @@ return {
       vim.keymap.set('n', 'gi', vim.lsp.buf.implementation, { buffer = 0, desc = 'Go to implementation' })
     end
 
+    mason_lspconfig.setup {
+      ensure_installed = { 'tsserver', 'html', 'cssls', 'lua_ls', 'gopls' },
+    }
+
     mason_lspconfig.setup_handlers {
       -- default handler
       function(server_name)
