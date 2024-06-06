@@ -1,8 +1,13 @@
 return {
   'mfussenegger/nvim-dap',
   dependencies = {
-    'rcarriga/nvim-dap-ui', -- ui when debugging
-    'nvim-neotest/nvim-nio', -- needed for nvim-dap ui
+    {
+      'rcarriga/nvim-dap-ui', -- ui when debugging
+
+      dependencies = {
+        'nvim-neotest/nvim-nio', -- needed for nvim-dap ui
+      },
+    },
     'theHamsta/nvim-dap-virtual-text', -- live evaluation of variables
     'nvim-telescope/telescope-dap.nvim', -- telescope features for dap
     'leoluz/nvim-dap-go', -- easy nvim-dap config for go with neat additional features
@@ -11,17 +16,65 @@ return {
 
   config = function()
     local dap = require 'dap'
-    local ui = require 'dapui'
+    local dapui = require 'dapui'
     local dap_go = require 'dap-go'
     local virtual_text = require 'nvim-dap-virtual-text'
     local mason_dap = require 'mason-nvim-dap'
 
+    vim.fn.sign_define('DapBreakpoint', { text = '🔰', texthl = '', linehl = '', numhl = '' })
+    vim.fn.sign_define('DapBreakpointCondition', { text = '❓', texthl = '', linehl = '', numhl = '' })
+    vim.fn.sign_define('DapBreakpointCondition', { text = '📩', texthl = '', linehl = '', numhl = '' })
+    vim.fn.sign_define('DapStopped', { text = '➡️', texthl = '', linehl = '', numhl = '' })
+    vim.fn.sign_define('DapBreakpointRejected', { text = '❌', texthl = '', linehl = '', numhl = '' })
+
     mason_dap.setup {
+      automatic_installation = true,
       ensure_installed = { 'delve' },
     }
-    ui.setup()
+
+    dapui.setup()
+    -- open and close dapui automatically
+    dap.listeners.before.attach.dapui_config = function()
+      dapui.open()
+    end
+    dap.listeners.before.launch.dapui_config = function()
+      dapui.open()
+    end
+    dap.listeners.before.event_terminated.dapui_config = function()
+      dapui.close()
+    end
+    dap.listeners.before.event_exited.dapui_config = function()
+      dapui.close()
+    end
+
     dap_go.setup()
     virtual_text.setup {}
+
+    local setup_dap_keymaps = function()
+      vim.keymap.set('n', '<F5>', function()
+        dap.continue()
+      end, { desc = 'Continue debugging' })
+      vim.keymap.set('n', '<F10>', function()
+        dap.step_over()
+      end, { desc = 'Step over' })
+      vim.keymap.set('n', '<F11>', function()
+        dap.step_into()
+      end, { desc = 'Step into' })
+      vim.keymap.set('n', '<F12>', function()
+        dap.step_out()
+      end, { desc = 'Step out' })
+      vim.keymap.set('n', '<Leader>b', function()
+        dap.toggle_breakpoint()
+      end, { desc = 'Toggle breakpoint' })
+      vim.keymap.set('n', '<Leader>lp', function()
+        dap.set_breakpoint(nil, nil, vim.fn.input 'Log point message: ')
+      end, { desc = 'Set a log point' })
+      vim.keymap.set('n', '<Leader>dl', function()
+        dap.run_last()
+      end, { desc = 'Debug last' })
+    end
+    setup_dap_keymaps()
+
     -- for golang
     -- you'll have to install delve with go install github.com/go-delve/delve/cmd/dlv@latest
     local setup_go_debugging_keymaps = function()
