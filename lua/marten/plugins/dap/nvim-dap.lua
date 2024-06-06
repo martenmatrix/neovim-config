@@ -12,6 +12,7 @@ return {
     'nvim-telescope/telescope-dap.nvim', -- telescope features for dap
     'leoluz/nvim-dap-go', -- easy nvim-dap config for go with neat additional features
     'jay-babu/mason-nvim-dap.nvim', -- use mason to install debug adapters
+    'mxsdev/nvim-dap-vscode-js', -- easy config for js, node, ts
   },
 
   config = function()
@@ -29,10 +30,56 @@ return {
 
     mason_dap.setup {
       automatic_installation = true,
-      ensure_installed = { 'delve' },
+      ensure_installed = { 'delve', 'js-debug-adapter' },
     }
 
     dapui.setup()
+
+    -- https://github.com/williamboman/mason.nvim/issues/1401#issuecomment-1629114821
+    dap.adapters['pwa-node'] = {
+      type = 'server',
+      host = 'localhost',
+      port = '${port}',
+      executable = {
+        command = vim.fn.exepath 'js-debug-adapter',
+        args = { '${port}' },
+      },
+    }
+
+    for _, language in ipairs { 'typescript', 'javascript' } do
+      dap.configurations[language] = {
+        {
+          type = 'pwa-node',
+          request = 'launch',
+          name = '[node] Launch file',
+          program = '${file}',
+          cwd = '${workspaceFolder}',
+        },
+        {
+          type = 'pwa-node',
+          request = 'attach',
+          name = '[node] Attach',
+          processId = require('dap.utils').pick_process,
+          cwd = '${workspaceFolder}',
+        },
+        {
+          type = 'pwa-node',
+          request = 'launch',
+          name = 'Debug Jest Tests',
+          -- trace = true, -- include debugger info
+          runtimeExecutable = 'node',
+          runtimeArgs = {
+            './node_modules/jest/bin/jest.js',
+            '--runInBand',
+          },
+          rootPath = '${workspaceFolder}',
+          cwd = '${workspaceFolder}',
+          console = 'integratedTerminal',
+          internalConsoleOptions = 'neverOpen',
+        },
+      }
+    end
+
     -- open and close dapui automatically
     dap.listeners.before.attach.dapui_config = function()
       vim.cmd 'NvimTreeClose'
