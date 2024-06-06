@@ -11,6 +11,12 @@ return {
     -- use opts = {} for passing setup options
     -- this is equalent to setup({}) function
   },
+  {
+    'windwp/nvim-ts-autotag',
+    config = function()
+      require('nvim-ts-autotag').setup {}
+    end,
+  },
   { 'akinsho/git-conflict.nvim', config = true },
   {
     'alvarosevilla95/luatab.nvim',
