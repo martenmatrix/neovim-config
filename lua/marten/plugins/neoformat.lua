@@ -25,6 +25,18 @@ return {
       pattern = '*.lua',
 
       callback = function()
+        local file_path = vim.fn.expand '%'
+        local changed_files = vim.system({ 'git', 'diff', '--name-only' }, { text = true }):wait()
+        if string.find(changed_files.stdout, file_path) then
+          print 'Current file was not modified. Did you forget to :w?'
+          return nil
+        end
+
+        --        local diff_output = vim.fn.system(string.format('git diff --unified=0 --minimal %s', file_path))
+        --   print(diff_output)
+
+        print('Current file path: ' .. file_path)
+
         vim.cmd [[try | undojoin | silent Neoformat stylua | catch /E790/ | silent Neoformat stylua | endtry]]
       end,
     })
