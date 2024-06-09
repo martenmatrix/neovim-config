@@ -42,7 +42,7 @@ return {
     vim.g.neoformat_enabled_go = { 'go-fmt' }
 
     vim.keymap.set('n', '<leader>fo', function()
-      vim.cmd [[try | undojoin | silent Neoformat go-fmt | catch /E790/ | silent Neoformat go-fmt | endtry]]
+      vim.cmd [[try | undojoin | silent Neoformat | catch /E790/ | silent Neoformat | endtry]]
     end, { desc = 'Format code' })
   end,
 }
