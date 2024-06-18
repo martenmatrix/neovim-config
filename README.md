@@ -23,9 +23,10 @@ For variable/placeholder-transformations you'll need to install `jsregexp` for L
 1. Go to `/Users/{user}/.local/share/nvim/lazy/LuaSnip`
 2. Run `make install_jsregexp`
 
-To enable all Telescope features install `ripgrep`:
+To enable all Telescope features install `ripgrep` and `fd`:
 
 `brew install ripgrep`
+`brew install fd`
 
 Some othe recommended installs:
 - `pnpm install neovim`
