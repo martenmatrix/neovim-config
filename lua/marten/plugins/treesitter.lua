@@ -26,7 +26,9 @@ return {
         'c',
         'styled', -- styled-components
       },
-      auto_install = true,
+      ignore_install = {},
+      sync_install = false,
+      auto_install = false,
       highlight = {
         enable = true,
       },
@@ -35,6 +37,7 @@ return {
       indent = {
         enable = true,
       },
+      modules = {},
     }
   end,
 }
