@@ -42,6 +42,8 @@ return {
       ensure_installed = { 'tsserver', 'html', 'cssls', 'eslint', 'lua_ls', 'gopls' },
     }
 
+    vim.lsp.set_log_level 'trace'
+
     mason_lspconfig.setup_handlers {
       -- default handler
       function(server_name)
@@ -77,6 +79,9 @@ return {
                 name = '@styled/typescript-styled-plugin',
                 location = '/Users/martenb/.nvm/versions/node/v22.0.0/lib/node_modules',
               },
+            },
+            tsserver = {
+              logVerbosity = 'verbose',
             },
           },
           on_attach = setup_keymaps,
