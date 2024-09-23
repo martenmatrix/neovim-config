@@ -25,7 +25,7 @@ return {
       pattern = '*.lua',
       callback = function()
         vim.cmd 'undojoin'
-        vim.cmd 'Neoformat stylua'
+        vim.cmd 'silent Neoformat stylua'
       end,
     })
 
@@ -73,7 +73,7 @@ return {
       },
       callback = function()
         vim.cmd 'undojoin'
-        vim.cmd 'Neoformat stylua'
+        vim.cmd 'silent Neoformat stylua'
       end,
     })
 
@@ -87,7 +87,7 @@ return {
       pattern = '*.go',
       callback = function()
         vim.cmd 'undojoin'
-        vim.cmd 'Neoformat go-fmt'
+        vim.cmd 'silent Neoformat go-fmt'
       end,
     })
 
