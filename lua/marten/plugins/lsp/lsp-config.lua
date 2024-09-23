@@ -82,6 +82,13 @@ return {
           on_attach = setup_keymaps,
         }
       end,
+      ['eslint'] = function()
+        lspconfig['eslint'].setup {
+          capabilities = capabilities,
+          dynamicRegistration = true,
+          on_attach = setup_keymaps,
+        }
+      end,
     }
   end,
 }
