@@ -74,6 +74,7 @@ return {
         lspconfig['tsserver'].setup {
           capabilities = capabilities,
           init_options = {
+            -- https://github.com/typescript-language-server/typescript-language-server/blob/master/docs/configuration.md
             plugins = {
               {
                 name = '@styled/typescript-styled-plugin',
