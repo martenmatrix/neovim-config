@@ -36,38 +36,37 @@ return {
     dapui.setup()
 
     -- https://github.com/williamboman/mason.nvim/issues/1401#issuecomment-1629114821
+    --https://github.com/mfussenegger/nvim-dap/issues/1104#issuecomment-1835734572 could be helpful at some time
     dap.adapters['pwa-node'] = {
       type = 'server',
       host = 'localhost',
       port = '${port}',
       executable = {
-        command = vim.fn.exepath 'js-debug-adapter',
-        args = { '${port}' },
+        command = "node", 
+        args = { (vim.fn.exepath 'js-debug-adapter'), '${port}' },
       },
     }
 
-    dap.adapters['pwa-chrome'] = {
-      type = 'server',
-      host = 'localhost',
-      port = '${port}',
+    dap.adapters['chrome'] = {
+      type = 'executable',
       command = 'node',
       executable = {
         command = vim.fn.exepath 'js-debug-adapter',
-        args = { '${port}' },
+        args = { (vim.fn.exepath 'js-debug-adapter'), '${port}' },
       },
     }
 
     for _, language in ipairs { 'typescript', 'javascript', 'typescriptreact', 'javascriptreact' } do
       dap.configurations[language] = {
         {
-          type = 'pwa-chrome',
-          request = 'launch',
+          type = 'chrome',
+          request = 'attach',
           name = 'Launch Chrome',
           program = '${file}',
           cwd = vim.fn.getcwd(),
           sourceMaps = true,
           protocol = 'inspector',
-          url = 'http://localhost:3000',
+          port = 9222,
           webRoot = '${workspaceFolder}',
         },
         {
