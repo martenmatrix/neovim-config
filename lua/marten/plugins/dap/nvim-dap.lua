@@ -46,8 +46,30 @@ return {
       },
     }
 
-    for _, language in ipairs { 'typescript', 'javascript' } do
+    dap.adapters['pwa-chrome'] = {
+      type = 'server',
+      host = 'localhost',
+      port = '${port}',
+      command = 'node',
+      executable = {
+        command = vim.fn.exepath 'js-debug-adapter',
+        args = { '${port}' },
+      },
+    }
+
+    for _, language in ipairs { 'typescript', 'javascript', 'typescriptreact', 'javascriptreact' } do
       dap.configurations[language] = {
+        {
+          type = 'pwa-chrome',
+          request = 'launch',
+          name = 'Launch Chrome',
+          program = '${file}',
+          cwd = vim.fn.getcwd(),
+          sourceMaps = true,
+          protocol = 'inspector',
+          url = 'http://localhost:3000',
+          webRoot = '${workspaceFolder}',
+        },
         {
           type = 'pwa-node',
           request = 'launch',
