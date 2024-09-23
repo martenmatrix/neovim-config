@@ -24,6 +24,7 @@ return {
         'query',
         'vimdoc',
         'c',
+        'styled', -- styled-components
       },
       auto_install = true,
       highlight = {
