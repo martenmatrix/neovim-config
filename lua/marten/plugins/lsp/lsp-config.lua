@@ -7,11 +7,12 @@ return {
     'ms-jpq/coq.thirdparty',
   },
   config = function()
+    -- vim.g.coq_settings needs to be set before lazys setup function is called, thus those settings are located in the init file
+
     local lspconfig = require 'lspconfig'
     local mason_lspconfig = require 'mason-lspconfig'
-    --    local cmp_nvim_lsp = require 'cmp_nvim_lsp'
-    local coq = require 'coq'
 
+    local coq = require 'coq'
     -- used to enable autocompletion (assign to every lsp server config)
     local capabilities = coq.lsp_ensure_capabilities()
 
