@@ -74,5 +74,9 @@ return {
         vim.cmd 'Neoformat stylua'
       end,
     })
+
+    -- GO
+    -- CONFIG
+    -- Go formatting is done with vim-golang
   end,
 }
