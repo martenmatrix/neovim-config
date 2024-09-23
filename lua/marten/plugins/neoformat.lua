@@ -11,23 +11,10 @@ return {
     -- Enable trimmming of trailing whitespace globally
     vim.g.neoformat_basic_format_trim = 1
 
-    -- create group, which clears itself after config-reload to prevent autocmd duplicates
-    local format_group = vim.api.nvim_create_augroup('FormatGroup', { clear = true })
-
     -- LUA
     -- CONFIG
     -- use stylua for lua formatting
     vim.g.neoformat_enabled_lua = { 'stylua' }
-
-    -- auto-format lua on save
-    vim.api.nvim_create_autocmd('CursorHold', {
-      group = format_group,
-      pattern = '*.lua',
-
-      callback = function()
-        vim.cmd [[try | undojoin | silent Neoformat stylua | catch /E790/ | silent Neoformat stylua | endtry]]
-      end,
-    })
 
     -- PRETTIER, TYPESCRIPT, JAVASCRIPT
     -- CONFIG
@@ -50,45 +37,12 @@ return {
     vim.g.neoformat_enabled_mdx = { 'prettier' }
     vim.g.neoformat_enabled_solidity = { 'prettier' }
 
-    vim.api.nvim_create_autocmd('CursorHold', {
-      group = format_group,
-      pattern = {
-        '*.js',
-        '*.jsx',
-        '*.ts',
-        '*.tsx',
-        '*.json',
-        '*.css',
-        '*.scss',
-        '*.less',
-        '*.html',
-        '*.vue',
-        '*.yaml',
-        '*.yml',
-        '*.md',
-        '*.graphql',
-        '*.gql',
-        '*.mdx',
-        '*.sol',
-      },
-      callback = function()
-        vim.cmd [[try | undojoin | silent Neoformat prettier | catch /E790/ | silent Neoformat prettier | endtry]]
-      end,
-    })
-
     -- GO
     -- CONFIG
     vim.g.neoformat_enabled_go = { 'go-fmt' }
 
-    -- auto-format lua on save
-    vim.api.nvim_create_autocmd('CursorHold', {
-      group = format_group,
-      pattern = '*.go',
-      callback = function()
-        vim.cmd [[try | undojoin | silent Neoformat go-fmt | catch /E790/ | silent Neoformat go-fmt | endtry]]
-      end,
-    })
-
-    vim.keymap.set('n', '<leader>fo', '<cmd>:Neoformat<CR>', { desc = 'Format code' })
+    vim.keymap.set('n', '<leader>fo', function()
+      vim.cmd [[try | undojoin | silent Neoformat go-fmt | catch /E790/ | silent Neoformat go-fmt | endtry]]
+    end, { desc = 'Format code' })
   end,
 }
