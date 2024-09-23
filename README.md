@@ -26,3 +26,6 @@ For variable/placeholder-transformations you'll need to install `jsregexp` for L
 To enable all Telescope features install `ripgrep`:
 
 `brew install ripgrep`
+
+Some othe recommended installs:
+- `pnpm install neovim`
