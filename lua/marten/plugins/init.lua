@@ -9,4 +9,5 @@ return {
     opts = {},
   },
   { 'wakatime/vim-wakatime', lazy = false },
+  'fatih/vim-go',
 }
