@@ -14,7 +14,7 @@ vim.opt.expandtab = true
 opt.softtabstop = 2
 -- number of spaces for auto-indent
 opt.shiftwidth = 2
--- copy intent from current line when pressing enter
+-- copy indent from current line when pressing enter
 opt.autoindent = true
 -- do not wrap text, if it exceeds window with
 opt.wrap = false
