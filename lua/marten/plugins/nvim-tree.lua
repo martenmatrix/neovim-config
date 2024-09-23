@@ -44,6 +44,9 @@ return {
       git = {
         ignore = true,
       },
+      update_focused_file = {
+        enable = true,
+      },
     }
 
     -- set keymaps
