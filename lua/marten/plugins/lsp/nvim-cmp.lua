@@ -17,12 +17,18 @@ return {
         })
       end,
     },
-    'L3MON4D3/LuaSnip', -- snippet engine
+    { 'L3MON4D3/LuaSnip', build = 'make install_jsregexp', dependencies = { 'rafamadriz/friendly-snippets' } }, -- snippet engine
     'saadparwaiz1/cmp_luasnip', -- for auto-completion
   },
   config = function()
     local cmp = require 'cmp'
     local luasnip = require 'luasnip'
+    require('luasnip.loaders.from_vscode').lazy_load()
+
+    require('luasnip').filetype_extend('javascript', { 'ejs' })
+    require('luasnip').filetype_extend('typescript', { 'ejs' })
+    require('luasnip').filetype_extend('javascriptreact', { 'ejs' })
+    require('luasnip').filetype_extend('typescriptreact', { 'ejs' })
 
     vim.opt.completeopt = { 'menu', 'menuone', 'noselect' }
     cmp.setup {
@@ -63,10 +69,11 @@ return {
       },
       sources = {
         -- order of sources will determine priority
+        { name = 'nvim_lsp', keyword_length = 1 },
+        { name = 'nvim_lsp_signature_help' },
+        { name = 'luasnip' },
         { name = 'path' },
-        { name = 'nvim_lsp' },
-        { name = 'buffer' },
-        { name = 'luasnip' }, -- For luasnip users.
+        { name = 'nvim_lua' },
       },
       formatting = {
         fields = { 'menu', 'abbr', 'kind' },
