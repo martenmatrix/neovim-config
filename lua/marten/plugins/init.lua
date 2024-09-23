@@ -12,4 +12,10 @@ return {
     -- this is equalent to setup({}) function
   },
   { 'akinsho/git-conflict.nvim', config = true },
+  {
+    'alvarosevilla95/luatab.nvim',
+    config = function()
+      require('luatab').setup {}
+    end,
+  },
 }
