@@ -14,6 +14,8 @@ keymap.set('n', '<leader>tn', '<cmd>tabn<CR>', { desc = 'Go to next tab' }) --  
 keymap.set('n', '<leader>tN', '<cmd>tabp<CR>', { desc = 'Go to previous tab' }) --  go to previous tab
 keymap.set('n', '<leader>tf', '<cmd>tabnew %<CR>', { desc = 'Open current buffer in new tab' }) --  move current buffer to new tab
 
+keymap.set('n', 'U', '<cmd>redo<CR>', { desc = 'Redo last change'}) -- Redo changes like an undo with U
+
 local go_to_tab = function()
   vim.ui.input({ prompt = 'Enter tab to navigate to: ' }, function(input)
     if input:match '%d*%+' then
