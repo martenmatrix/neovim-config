@@ -7,6 +7,9 @@ Some formatters are pre-configured like `stylua` for Lua. You need to install th
 **Lua**:
 - `brew install stylua`
 
+**Prettier**:
+- `npm install -g prettier`
+
 If you want to use `styled-components` with Typescript, you'll have to install the TypeScript Styled Plugin locally in your project and configure the tsconfig.json [like this](https://github.com/styled-components/typescript-styled-plugin?tab=readme-ov-file#with-vs-code) or you'll have to configure it globally the following way:
 
 1. `npm install -g @styled/typescript-styled-plugin`
