@@ -30,3 +30,5 @@ To enable all Telescope features install `ripgrep` and `fd`:
 
 Some othe recommended installs:
 - `pnpm install neovim`
+
+For unknown reasons Mason does not always install `js-debug-adapter` automatically, so you'll might have to run `:MasonInstall js-debug-adapter` to use some debugging features with JavaScript or TypeScript. 

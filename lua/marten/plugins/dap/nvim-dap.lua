@@ -30,7 +30,7 @@ return {
 
     mason_dap.setup {
       automatic_installation = true,
-      ensure_installed = { 'delve', 'js-debug-adapter' },
+      ensure_installed = { 'delve', 'js-debug-adapter' }, -- TODO somehow js-debug-adapter is not automatically installed
     }
 
     dapui.setup()
