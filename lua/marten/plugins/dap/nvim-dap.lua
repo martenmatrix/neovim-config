@@ -35,11 +35,11 @@ return {
     dapui.setup()
     -- open and close dapui automatically
     dap.listeners.before.attach.dapui_config = function()
-      vim.cmd('NvimTreeClose')
+      vim.cmd 'NvimTreeClose'
       dapui.open()
     end
     dap.listeners.before.launch.dapui_config = function()
-      vim.cmd('NvimTreeClose')
+      vim.cmd 'NvimTreeClose'
       dapui.open()
     end
     dap.listeners.before.event_terminated.dapui_config = function()
@@ -74,6 +74,10 @@ return {
       vim.keymap.set('n', '<Leader>dl', function()
         dap.run_last()
       end, { desc = 'Debug last' })
+      -- eval var under cursor
+      vim.keymap.set('n', '<leader>d?', function()
+        dapui.eval(nil, { enter = true })
+      end, { desc = 'Evaluate hovered expression' })
     end
     setup_dap_keymaps()
 
