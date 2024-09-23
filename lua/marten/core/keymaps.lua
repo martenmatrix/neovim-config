@@ -14,15 +14,14 @@ keymap.set('n', '<leader>tn', '<cmd>tabn<CR>', { desc = 'Go to next tab' }) --  
 keymap.set('n', '<leader>tN', '<cmd>tabp<CR>', { desc = 'Go to previous tab' }) --  go to previous tab
 keymap.set('n', '<leader>tf', '<cmd>tabnew %<CR>', { desc = 'Open current buffer in new tab' }) --  move current buffer to new tab
 
-keymap.set('n', 'U', '<cmd>redo<CR>', { desc = 'Redo last change'}) -- Redo changes like an undo with U
+keymap.set('n', 'U', '<cmd>redo<CR>', { desc = 'Redo last change' }) -- Redo changes like an undo with U
 
-local go_to_tab = function()
-  vim.ui.input({ prompt = 'Enter tab to navigate to: ' }, function(input)
-    if input:match '%d*%+' then
-      vim.cmd(('tabn' .. input))
-    end
-    vim.cmd [[ echo ' ' ]] -- do not use print because it appends something to the history
-  end)
+-- Map Alt + 1-9 to switch to tab 1-9
+for i = 1, 9 do
+  vim.keymap.set(
+    'n',
+    '<leader>' .. i .. '',
+    ':tabn ' .. i .. '<CR>',
+    { silent = true, desc = 'Move to tab' .. i .. '' }
+  )
 end
-
-keymap.set('n', '<leader>t', go_to_tab, { desc = 'Open a specific tab with a number' })
