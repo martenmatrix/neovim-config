@@ -73,13 +73,13 @@ return {
       },
       callback = function()
         vim.cmd 'silent undojoin'
-        vim.cmd 'silent Neoformat stylua'
+        vim.cmd 'silent Neoformat prettier'
       end,
     })
 
     -- GO
     -- CONFIG
-    vim.g.neoformat_enabled_lua = { 'go-fmt' }
+    vim.g.neoformat_enabled_go = { 'go-fmt' }
 
     -- auto-format lua on save
     vim.api.nvim_create_autocmd('CursorHold', {
@@ -91,6 +91,6 @@ return {
       end,
     })
 
-    vim.keymap.set('n', '<leader>fo', '<cmd>:Neoformat<CR>', { desc = 'Format code' }) --  go to next tab
+    vim.keymap.set('n', '<leader>fo', '<cmd>:Neoformat<CR>', { desc = 'Format code' })
   end,
 }
