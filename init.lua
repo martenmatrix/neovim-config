@@ -1,2 +1,2 @@
-require("marten.core.options")
-require("marten.lazy")
+require 'marten.core.options'
+require 'marten.lazy'
