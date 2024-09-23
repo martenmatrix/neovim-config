@@ -4,5 +4,7 @@ return {
 	dependencies = {
 		'nvim-lua/plenary.nvim',
 		'BurntSushi/ripgrep', --makes telescope respect .gitignore files
+		'nvim-treesitter/nvim-treesitter',
+		'nvim-tree/nvim-web-devicons',		
 	},
 }
