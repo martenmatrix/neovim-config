@@ -1,4 +1,5 @@
 return {
+  -- NOTE ABOUT GIT TIMEOUT (5 git jobs have timed out...), this is often caused by .idea folders which can just be removed (run time git --no-optional-locks status --porcelain=v1 --ignored=matching -u to see why git is taking so long) (https://github.com/nvim-tree/nvim-tree.lua/discussions/2737#discussioncomment-8977898)
   'nvim-tree/nvim-tree.lua',
   dependencies = 'nvim-tree/nvim-web-devicons',
   config = function()
