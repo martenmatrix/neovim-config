@@ -40,7 +40,7 @@ return {
     end
 
     mason_lspconfig.setup {
-      ensure_installed = { 'tsserver', 'html', 'cssls', 'eslint', 'lua_ls', 'gopls' },
+      ensure_installed = { 'ts_ls', 'html', 'cssls', 'eslint', 'lua_ls', 'gopls' },
     }
 
     vim.lsp.set_log_level 'trace'
@@ -71,8 +71,8 @@ return {
           on_attach = setup_keymaps,
         }
       end,
-      ['tsserver'] = function()
-        lspconfig['tsserver'].setup {
+      ['ts_ls'] = function()
+        lspconfig['ts_ls'].setup {
           capabilities = capabilities,
           init_options = {
             -- https://github.com/typescript-language-server/typescript-language-server/blob/master/docs/configuration.md
@@ -81,9 +81,6 @@ return {
                 name = '@styled/typescript-styled-plugin',
                 location = '/Users/martenb/.nvm/versions/node/v22.0.0/lib/node_modules',
               },
-            },
-            tsserver = {
-              logVerbosity = 'off',
             },
           },
           on_attach = setup_keymaps,
