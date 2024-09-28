@@ -17,7 +17,7 @@ return {
       require('nvim-ts-autotag').setup {}
     end,
   },
-  { 'akinsho/git-conflict.nvim', config = true },
+  { 'akinsho/git-conflict.nvim', version="*", config = true },
   {
     'alvarosevilla95/luatab.nvim',
     config = function()
