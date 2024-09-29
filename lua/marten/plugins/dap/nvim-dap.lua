@@ -12,7 +12,6 @@ return {
     'nvim-telescope/telescope-dap.nvim', -- telescope features for dap
     'leoluz/nvim-dap-go', -- easy nvim-dap config for go with neat additional features
     'jay-babu/mason-nvim-dap.nvim', -- use mason to install debug adapters
-    'mxsdev/nvim-dap-vscode-js', -- easy config for js, node, ts
   },
 
   config = function()
@@ -30,76 +29,60 @@ return {
 
     mason_dap.setup {
       automatic_installation = true,
-      ensure_installed = { 'delve', 'js-debug-adapter' }, -- TODO somehow js-debug-adapter is not automatically installed
+      ensure_installed = { 'delve', 'js' }, -- TODO somehow js-debug-adapter is not automatically installed
     }
 
     dapui.setup()
 
-    -- https://github.com/williamboman/mason.nvim/issues/1401#issuecomment-1629114821
-    dap.adapters['pwa-node'] = {
-      type = 'server',
-      host = 'localhost',
-      port = '${port}',
-      executable = {
-        command = vim.fn.exepath 'js-debug-adapter',
-        args = { '${port}' },
-      },
-    }
-
-    dap.adapters['pwa-chrome'] = {
-      type = 'server',
-      host = 'localhost',
-      port = '${port}',
-      command = 'node',
-      executable = {
-        command = vim.fn.exepath 'js-debug-adapter',
-        args = { '${port}' },
-      },
-    }
-
-    for _, language in ipairs { 'typescript', 'javascript', 'typescriptreact', 'javascriptreact' } do
-      dap.configurations[language] = {
-        {
-          type = 'pwa-chrome',
-          request = 'launch',
-          name = 'Launch Chrome',
-          program = '${file}',
-          cwd = vim.fn.getcwd(),
-          sourceMaps = true,
-          protocol = 'inspector',
-          url = 'http://localhost:3000',
-          webRoot = '${workspaceFolder}',
-        },
-        {
-          type = 'pwa-node',
-          request = 'launch',
-          name = '[node] Launch file',
-          program = '${file}',
-          cwd = '${workspaceFolder}',
-        },
-        {
-          type = 'pwa-node',
-          request = 'attach',
-          name = '[node] Attach',
-          processId = require('dap.utils').pick_process,
-          cwd = '${workspaceFolder}',
-        },
-        {
-          type = 'pwa-node',
-          request = 'launch',
-          name = 'Debug Jest Tests',
-          -- trace = true, -- include debugger info
-          runtimeExecutable = 'node',
-          runtimeArgs = {
-            './node_modules/jest/bin/jest.js',
-            '--runInBand',
+    if not dap.adapters['pwa-node'] then
+      require('dap').adapters['pwa-node'] = {
+        type = 'server',
+        host = 'localhost',
+        port = '${port}',
+        executable = {
+          command = 'node',
+          -- 💀 Make sure to update this path to point to your installation
+          args = {
+            require('mason-registry').get_package('js-debug-adapter'):get_install_path()
+              .. '/js-debug/src/dapDebugServer.js',
+            '${port}',
           },
-          rootPath = '${workspaceFolder}',
-          cwd = '${workspaceFolder}',
-          console = 'integratedTerminal',
-          internalConsoleOptions = 'neverOpen',
         },
       }
+    end
+    if not dap.adapters['node'] then
+      dap.adapters['node'] = function(cb, config)
+        if config.type == 'node' then
+          config.type = 'pwa-node'
+        end
+        local nativeAdapter = dap.adapters['pwa-node']
+        if type(nativeAdapter) == 'function' then
+          nativeAdapter(cb, config)
+        else
+          cb(nativeAdapter)
+        end
+      end
+    end
+
+    for _, language in ipairs { 'typescript', 'javascript', 'typescriptreact', 'javascriptreact' } do
+      if not dap.configurations[language] then
+        dap.configurations[language] = {
+          {
+            type = 'pwa-node',
+            request = 'launch',
+            name = 'Launch file',
+            program = '${file}',
+            cwd = '${workspaceFolder}',
+          },
+          {
+            type = 'pwa-node',
+            request = 'attach',
+            name = 'Attach',
+            processId = require('dap.utils').pick_process,
+            cwd = '${workspaceFolder}',
+          },
+        }
+      end
     end
 
     -- open and close dapui automatically
@@ -112,10 +95,10 @@ return {
       dapui.open()
     end
     dap.listeners.before.event_terminated.dapui_config = function()
-      dapui.close()
+      -- dapui.close()
     end
     dap.listeners.before.event_exited.dapui_config = function()
-      dapui.close()
+      -- dapui.close()
     end
 
     dap_go.setup()
