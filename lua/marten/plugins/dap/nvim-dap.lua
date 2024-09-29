@@ -76,6 +76,21 @@ return {
           },
           {
             type = 'pwa-node',
+            request = 'launch',
+            name = 'Debug Jest Tests',
+            trace = true, -- include debugger info
+            runtimeExecutable = 'node',
+            runtimeArgs = {
+              './node_modules/jest/bin/jest.js',
+              '--runInBand',
+            },
+            rootPath = '${workspaceFolder}',
+            cwd = '${workspaceFolder}',
+            console = 'integratedTerminal',
+            internalConsoleOptions = 'neverOpen',
+          },
+          {
+            type = 'pwa-node',
             request = 'attach',
             name = 'Attach',
             processId = require('dap.utils').pick_process,
@@ -84,6 +99,8 @@ return {
         }
       end
     end
+
+    require('dap.ext.vscode').load_launchjs(); -- load and overwrite settings with .vscode/launch.json files
 
     -- open and close dapui automatically
     dap.listeners.before.attach.dapui_config = function()
