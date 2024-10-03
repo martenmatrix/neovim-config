@@ -14,6 +14,9 @@ return {
 
     telescope.setup {
       defaults = {
+        file_ignore_patterns = {
+          '*.lock',
+        },
         path_display = { 'smart' },
         mappings = {
           i = {
@@ -37,7 +40,7 @@ return {
 
     -- set keymaps
     local keymap = vim.keymap -- for conciseness
-    local builtin = require('telescope.builtin')
+    local builtin = require 'telescope.builtin'
 
     keymap.set('n', '<leader>ff', telescope.extensions.menufacture.find_files, { desc = 'Fuzzy find files' })
     keymap.set('n', '<leader>fr', telescope.extensions.menufacture.oldfiles, { desc = 'Fuzzy find recent files' })
@@ -50,6 +53,11 @@ return {
     )
     keymap.set('n', '<leader>hc', builtin.commands, { desc = 'Telescope trough command mode commands' })
     keymap.set('n', '<leader>hk', builtin.keymaps, { desc = 'Telescope trough keymaps' })
-    keymap.set('n', '<leader>ht', builtin.help_tags, { desc = 'Telescope trough neovim functions and topics in general' })
+    keymap.set(
+      'n',
+      '<leader>ht',
+      builtin.help_tags,
+      { desc = 'Telescope trough neovim functions and topics in general' }
+    )
   end,
 }
