@@ -27,6 +27,12 @@ return {
         },
       },
 
+      pickers = {
+        oldfiles = {
+          cwd_only = true,
+        },
+      },
+
       extensions = {
         menufacture = {
           mappings = {
