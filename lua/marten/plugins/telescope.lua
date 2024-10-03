@@ -15,8 +15,9 @@ return {
     telescope.setup {
       defaults = {
         file_ignore_patterns = {
-          'pnpm-lock.yaml',
+          'pnpm%-lock.yaml',
         },
+
         path_display = { 'smart' },
         mappings = {
           i = {
