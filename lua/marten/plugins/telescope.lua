@@ -51,5 +51,6 @@ return {
     keymap.set('n', '<leader>hc', builtin.commands, { desc = 'Telescope trough command mode commands' })
     keymap.set('n', '<leader>hk', builtin.keymaps, { desc = 'Telescope trough keymaps' })
     keymap.set('n', '<leader>ht', builtin.help_tags, { desc = 'Telescope trough neovim functions and topics in general' })
+    keymap.set('n', '<leader>fR', builtin.lsp_references, {desc = 'Telescope trough references'})
   end,
 }
