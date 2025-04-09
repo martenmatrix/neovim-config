@@ -14,6 +14,10 @@ return {
 
     telescope.setup {
       defaults = {
+        file_ignore_patterns = {
+          'pnpm%-lock.yaml',
+        },
+
         path_display = { 'smart' },
         mappings = {
           i = {
@@ -21,6 +25,12 @@ return {
             ['<C-j>'] = actions.move_selection_next, -- move to next result
             ['<C-q>'] = actions.send_selected_to_qflist + actions.open_qflist,
           },
+        },
+      },
+
+      pickers = {
+        oldfiles = {
+          cwd_only = true,
         },
       },
 
@@ -37,7 +47,7 @@ return {
 
     -- set keymaps
     local keymap = vim.keymap -- for conciseness
-    local builtin = require('telescope.builtin')
+    local builtin = require 'telescope.builtin'
 
     keymap.set('n', '<leader>ff', telescope.extensions.menufacture.find_files, { desc = 'Fuzzy find files' })
     keymap.set('n', '<leader>fr', telescope.extensions.menufacture.oldfiles, { desc = 'Fuzzy find recent files' })
