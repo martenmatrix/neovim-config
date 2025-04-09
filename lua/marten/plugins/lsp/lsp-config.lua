@@ -41,7 +41,7 @@ return {
 
     mason_lspconfig.setup {
       automatic_installation = true,
-      ensure_installed = { 'ts_ls', 'html', 'cssls', 'eslint', 'lua_ls', 'gopls' },
+      ensure_installed = { 'ts_ls', 'html', 'cssls', 'eslint', 'lua_ls', 'gopls', 'tinymist' },
     }
 
     vim.lsp.set_log_level 'off'
