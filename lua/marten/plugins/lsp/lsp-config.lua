@@ -39,64 +39,84 @@ return {
       )
     end
 
+    vim.lsp.config('*', {
+      capabilities = capabilities,
+      on_attach = setup_keymaps,
+    })
+
+    vim.lsp.config('lua_ls', {
+      on_init = function(client)
+        if client.workspace_folders then
+          local path = client.workspace_folders[1].name
+          if
+            path ~= vim.fn.stdpath 'config'
+            and (vim.uv.fs_stat(path .. '/.luarc.json') or vim.uv.fs_stat(path .. '/.luarc.jsonc'))
+          then
+            return
+          end
+        end
+
+        client.config.settings.Lua = vim.tbl_deep_extend('force', client.config.settings.Lua, {
+          runtime = {
+            -- Tell the language server which version of Lua you're using (most
+            -- likely LuaJIT in the case of Neovim)
+            version = 'LuaJIT',
+            -- Tell the language server how to find Lua modules same way as Neovim
+            -- (see `:h lua-module-load`)
+            path = {
+              'lua/?.lua',
+              'lua/?/init.lua',
+            },
+          },
+          -- Make the server aware of Neovim runtime files
+          workspace = {
+            checkThirdParty = false,
+            library = {
+              vim.env.VIMRUNTIME,
+              -- Depending on the usage, you might want to add additional paths
+              -- here.
+              -- '${3rd}/luv/library'
+              -- '${3rd}/busted/library'
+            },
+            -- Or pull in all of 'runtimepath'.
+            -- NOTE: this is a lot slower and will cause issues when working on
+            -- your own configuration.
+            -- See https://github.com/neovim/nvim-lspconfig/issues/3189
+            -- library = {
+            --   vim.api.nvim_get_runtime_file('', true),
+            -- }
+          },
+        })
+      end,
+      settings = {
+        Lua = {},
+      },
+    })
+
+    vim.lsp.config('ts_ls', {
+      init_options = {
+        -- https://github.com/typescript-language-server/typescript-language-server/blob/master/docs/configuration.md
+        plugins = {
+          {
+            name = '@styled/typescript-styled-plugin',
+            location = '/Users/mbitterling/.nvm/versions/node/v20.15.0/lib/node_modules',
+          },
+        },
+        tsserver = {
+          logVerbosity = 'off',
+        },
+      },
+    })
+
+    vim.lsp.config('eslint', {
+      dynamicRegistration = true,
+    })
+
     mason_lspconfig.setup {
       automatic_installation = true,
       ensure_installed = { 'ts_ls', 'html', 'cssls', 'eslint', 'lua_ls', 'gopls', 'tinymist' },
     }
 
     vim.lsp.set_log_level 'off'
-
-    mason_lspconfig.setup_handlers {
-      -- default handler
-      function(server_name)
-        lspconfig[server_name].setup {
-          capabilities = capabilities,
-          on_attach = setup_keymaps,
-        }
-      end,
-      ['lua_ls'] = function()
-        -- configure lua server (with special settings)
-        lspconfig['lua_ls'].setup {
-          capabilities = capabilities,
-          root_dir = lspconfig.util.root_pattern(
-            'init.lua',
-            '.luarc.json',
-            '.luarc.jsonc',
-            '.luacheckrc',
-            '.stylua.toml',
-            'stylua.toml',
-            'selene.toml',
-            'selene.yml',
-            '.git'
-          ),
-          on_attach = setup_keymaps,
-        }
-      end,
-      ['ts_ls'] = function()
-        lspconfig['ts_ls'].setup {
-          capabilities = capabilities,
-          init_options = {
-            -- https://github.com/typescript-language-server/typescript-language-server/blob/master/docs/configuration.md
-            plugins = {
-              {
-                name = '@styled/typescript-styled-plugin',
-                location = '/Users/martenb/.nvm/versions/node/v22.0.0/lib/node_modules',
-              },
-            },
-            tsserver = {
-              logVerbosity = 'off',
-            },
-          },
-          on_attach = setup_keymaps,
-        }
-      end,
-      ['eslint'] = function()
-        lspconfig['eslint'].setup {
-          capabilities = capabilities,
-          dynamicRegistration = true,
-          on_attach = setup_keymaps,
-        }
-      end,
-    }
   end,
 }
