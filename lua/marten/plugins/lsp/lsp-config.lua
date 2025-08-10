@@ -39,9 +39,15 @@ return {
       )
     end
 
+    vim.api.nvim_create_autocmd('LspAttach', {
+      group = vim.api.nvim_create_augroup("my.lsp.keys", {}),
+      callback = function()
+        setup_keymaps()
+      end
+    })
+
     vim.lsp.config('*', {
       capabilities = capabilities,
-      on_attach = setup_keymaps,
     })
 
     vim.lsp.config('lua_ls', {
@@ -116,6 +122,8 @@ return {
       automatic_installation = true,
       ensure_installed = { 'ts_ls', 'html', 'cssls', 'eslint', 'lua_ls', 'gopls', 'tinymist' },
     }
+
+    vim.lsp.enable({"ts_ls", 'lua_ls', 'eslint', 'html', 'cssls', 'gopls', 'tinymist'})
 
     vim.lsp.set_log_level 'off'
   end,
