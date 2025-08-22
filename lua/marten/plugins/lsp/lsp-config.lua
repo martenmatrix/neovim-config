@@ -40,10 +40,10 @@ return {
     end
 
     vim.api.nvim_create_autocmd('LspAttach', {
-      group = vim.api.nvim_create_augroup("my.lsp.keys", {}),
+      group = vim.api.nvim_create_augroup('my.lsp.keys', {}),
       callback = function()
         setup_keymaps()
-      end
+      end,
     })
 
     vim.lsp.config('*', {
@@ -112,6 +112,14 @@ return {
           logVerbosity = 'off',
         },
       },
+      on_attach = function(_, bufnr)
+        vim.keymap.set('n', '<leader>mi', function()
+          vim.lsp.buf.code_action {
+            apply = true,
+            context = { only = { 'source.addMissingImports.ts' } },
+          }
+        end, { buffer = bufnr, silent = true, desc = 'TS: Add Missing Imports' })
+      end,
     })
 
     vim.lsp.config('eslint', {
@@ -123,7 +131,7 @@ return {
       ensure_installed = { 'ts_ls', 'html', 'cssls', 'eslint', 'lua_ls', 'gopls', 'tinymist' },
     }
 
-    vim.lsp.enable({"ts_ls", 'lua_ls', 'eslint', 'html', 'cssls', 'gopls', 'tinymist'})
+    vim.lsp.enable { 'ts_ls', 'lua_ls', 'eslint', 'html', 'cssls', 'gopls', 'tinymist' }
 
     vim.lsp.set_log_level 'off'
   end,
