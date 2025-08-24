@@ -131,7 +131,7 @@ return {
       ensure_installed = { 'ts_ls', 'html', 'cssls', 'eslint', 'lua_ls', 'gopls', 'tinymist', 'pyright' },
     }
 
-    vim.lsp.enable { 'ts_ls', 'lua_ls', 'eslint', 'html', 'cssls', 'gopls', 'tinymist' }
+    vim.lsp.enable { 'ts_ls', 'lua_ls', 'eslint', 'html', 'cssls', 'gopls', 'tinymist', "pyright" }
 
     vim.lsp.set_log_level 'off'
   end,
