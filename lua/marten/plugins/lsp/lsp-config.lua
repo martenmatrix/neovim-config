@@ -120,18 +120,26 @@ return {
           }
         end, { buffer = bufnr, silent = true, desc = 'TS: Add Missing Imports' })
       end,
+      root_markers = { 'package.json' },
+      single_file_support = false,
+    })
+
+    vim.lsp.config('denols', {
+      root_markers = { 'deno.json', 'deno.jsonc' },
     })
 
     vim.lsp.config('eslint', {
       dynamicRegistration = true,
     })
 
+    local languages = { 'ts_ls', 'html', 'cssls', 'eslint', 'lua_ls', 'gopls', 'tinymist', 'pyright', 'denols' }
+
     mason_lspconfig.setup {
       automatic_installation = true,
-      ensure_installed = { 'ts_ls', 'html', 'cssls', 'eslint', 'lua_ls', 'gopls', 'tinymist', 'pyright' },
+      ensure_installed = languages,
     }
 
-    vim.lsp.enable { 'ts_ls', 'lua_ls', 'eslint', 'html', 'cssls', 'gopls', 'tinymist', "pyright" }
+    vim.lsp.enable(languages)
 
     vim.lsp.set_log_level 'off'
   end,
