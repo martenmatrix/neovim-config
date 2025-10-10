@@ -17,11 +17,17 @@ return {
       require('nvim-ts-autotag').setup {}
     end,
   },
-  { 'akinsho/git-conflict.nvim', version="*", config = true },
+  { 'akinsho/git-conflict.nvim', version = '*', config = true },
   {
     'alvarosevilla95/luatab.nvim',
     config = function()
       require('luatab').setup {}
     end,
   },
+
+  config = function()
+    vim.g.markdown_fenced_languages = {
+      'ts=typescript',
+    }
+  end,
 }

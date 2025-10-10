@@ -1,8 +1,7 @@
 return {
-  'nvim-lspconfig',
+  'williamboman/mason-lspconfig.nvim',
   dependencies = {
-    'williamboman/mason-lspconfig.nvim',
-    'hrsh7th/cmp-nvim-lsp',
+    'nvim-lspconfig',
     {
       'folke/lazydev.nvim',
       ft = 'lua', -- only load on lua files
@@ -17,26 +16,15 @@ return {
     { 'Bilal2453/luvit-meta', lazy = true }, -- optional `vim.uv` typings
   },
   config = function()
-    -- vim.g.coq_settings needs to be set before lazys setup function is called, thus those settings are located in the init file
-
-    local lspconfig = require 'lspconfig'
     local mason_lspconfig = require 'mason-lspconfig'
-    local cmp_nvim_lsp = require 'cmp_nvim_lsp'
 
-    local capabilities = cmp_nvim_lsp.default_capabilities()
-
-    local setup_keymaps = function()
-      vim.keymap.set('n', 'K', vim.lsp.buf.hover, { buffer = 0, desc = 'Show documentation for hovered text' })
-      vim.keymap.set('n', 'gd', vim.lsp.buf.definition, { buffer = 0, desc = 'Go to definition' })
-      vim.keymap.set('n', 'gt', vim.lsp.buf.type_definition, { buffer = 0, desc = 'Go to type definition' })
-      vim.keymap.set('n', 'gi', vim.lsp.buf.implementation, { buffer = 0, desc = 'Go to implementation' })
-      vim.keymap.set('n', 'gr', vim.lsp.buf.rename, { buffer = 0, desc = 'Rename' })
-      vim.keymap.set(
-        'n',
-        'gw',
-        vim.diagnostic.open_float,
-        { buffer = 0, desc = 'Show warning/error in a floating window' }
-      )
+    local setup_keymaps = function(buffer)
+      vim.keymap.set('n', 'K', vim.lsp.buf.hover, { buffer, desc = 'Show documentation for hovered text' })
+      vim.keymap.set('n', 'gd', vim.lsp.buf.definition, { buffer, desc = 'Go to definition' })
+      vim.keymap.set('n', 'gt', vim.lsp.buf.type_definition, { buffer, desc = 'Go to type definition' })
+      vim.keymap.set('n', 'gi', vim.lsp.buf.implementation, { buffer, desc = 'Go to implementation' })
+      vim.keymap.set('n', 'gr', vim.lsp.buf.rename, { buffer, desc = 'Rename' })
+      vim.keymap.set('n', 'gw', vim.diagnostic.open_float, { buffer, desc = 'Show warning/error in a floating window' })
     end
 
     vim.api.nvim_create_autocmd('LspAttach', {
@@ -44,10 +32,6 @@ return {
       callback = function()
         setup_keymaps()
       end,
-    })
-
-    vim.lsp.config('*', {
-      capabilities = capabilities,
     })
 
     vim.lsp.config('lua_ls', {
@@ -100,6 +84,7 @@ return {
     })
 
     vim.lsp.config('ts_ls', {
+      root_markers = { 'package.json' },
       init_options = {
         -- https://github.com/typescript-language-server/typescript-language-server/blob/master/docs/configuration.md
         plugins = {
@@ -120,12 +105,6 @@ return {
           }
         end, { buffer = bufnr, silent = true, desc = 'TS: Add Missing Imports' })
       end,
-      root_markers = { 'package.json' },
-      single_file_support = false,
-    })
-
-    vim.lsp.config('denols', {
-      root_markers = { 'deno.json', 'deno.jsonc' },
     })
 
     vim.lsp.config('eslint', {
