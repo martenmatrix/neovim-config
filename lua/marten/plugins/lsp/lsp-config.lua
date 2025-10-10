@@ -84,7 +84,7 @@ return {
     })
 
     vim.lsp.config('ts_ls', {
-      root_markers = { 'package.json' },
+      root_dir = { 'package.json' },
       init_options = {
         -- https://github.com/typescript-language-server/typescript-language-server/blob/master/docs/configuration.md
         plugins = {
