@@ -90,7 +90,8 @@ return {
         plugins = {
           {
             name = '@styled/typescript-styled-plugin',
-            location = '/Users/mbitterling/.nvm/versions/node/v20.15.0/lib/node_modules',
+            location = '/Users/martenb/Library/pnpm/global/5/node_modules'
+,
           },
         },
         tsserver = {
