@@ -112,7 +112,7 @@ return {
       dynamicRegistration = true,
     })
 
-    local languages = { 'ts_ls', 'html', 'cssls', 'eslint', 'lua_ls', 'gopls', 'tinymist', 'pyright', 'denols' }
+    local languages = { 'ts_ls', 'html', 'cssls', 'eslint', 'lua_ls', 'gopls', 'tinymist', 'pyright', 'denols', 'jdtls'}
 
     mason_lspconfig.setup {
       automatic_installation = true,
@@ -121,6 +121,6 @@ return {
 
     vim.lsp.enable(languages)
 
-    vim.lsp.set_log_level 'off'
+    vim.lsp.log.set_level 'off'
   end,
 }

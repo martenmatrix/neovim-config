@@ -101,8 +101,6 @@ return {
       end
     end
 
-    require('dap.ext.vscode').load_launchjs(); -- load and overwrite settings with .vscode/launch.json files
-
     -- open and close dapui automatically
     dap.listeners.before.attach.dapui_config = function()
       vim.cmd 'NvimTreeClose'
