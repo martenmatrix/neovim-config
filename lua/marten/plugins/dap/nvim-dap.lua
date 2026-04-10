@@ -29,13 +29,13 @@ return {
 
     mason_dap.setup {
       automatic_installation = true,
-      ensure_installed = { 'delve', 'js' }, -- TODO somehow js-debug-adapter is not automatically installed
+      ensure_installed = { 'delve', 'js', 'python' }, -- TODO somehow js-debug-adapter is not automatically installed
     }
 
     dapui.setup()
 
     if not dap.adapters['pwa-node'] then
-      require('dap').adapters['pwa-node'] = {
+      dap.adapters['pwa-node'] = {
         type = 'server',
         host = 'localhost',
         port = '${port}',
@@ -63,6 +63,33 @@ return {
           cb(nativeAdapter)
         end
       end
+    end
+    if not dap.configurations['python'] then
+      dap.configurations.python = {
+        {
+          -- The first three options are required by nvim-dap
+          type = 'python'; -- the type here established the link to the adapter definition: `dap.adapters.python`
+          request = 'launch';
+          name = "Launch file";
+
+          -- Options below are for debugpy, see https://github.com/microsoft/debugpy/wiki/Debug-configuration-settings for supported options
+
+          program = "${file}"; -- This configuration will launch the current file if used.
+          pythonPath = function()
+            -- debugpy supports launching an application with a different interpreter then the one used to launch debugpy itself.
+            -- The code below looks for a `venv` or `.venv` folder in the current directly and uses the python within.
+            -- You could adapt this - to for example use the `VIRTUAL_ENV` environment variable.
+            local cwd = vim.fn.getcwd()
+            if vim.fn.executable(cwd .. '/venv/bin/python') == 1 then
+              return cwd .. '/venv/bin/python'
+            elseif vim.fn.executable(cwd .. '/.venv/bin/python') == 1 then
+              return cwd .. '/.venv/bin/python'
+            else
+              return '/usr/bin/python'
+            end
+          end;
+        },
+      }
     end
 
     for _, language in ipairs { 'typescript', 'javascript', 'typescriptreact', 'javascriptreact' } do
