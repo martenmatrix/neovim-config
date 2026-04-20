@@ -52,6 +52,7 @@ return {
 
     telescope.load_extension 'menufacture'
     telescope.load_extension 'fzf'
+    telescope.load_extension 'dap'
 
     -- set keymaps
     local keymap = vim.keymap -- for conciseness
@@ -67,6 +68,7 @@ return {
       { desc = 'Find string under cursor in cwd' }
     )
     keymap.set('n', '<leader>hc', builtin.commands, { desc = 'Telescope trough command mode commands' })
+    keymap.set('n', '<leader>f:', builtin.commands, { desc = 'Telescope trough command mode commands' })
     keymap.set('n', '<leader>hk', builtin.keymaps, { desc = 'Telescope trough keymaps' })
     keymap.set(
       'n',
@@ -75,5 +77,6 @@ return {
       { desc = 'Telescope trough neovim functions and topics in general' }
     )
     keymap.set('n', '<leader>fR', builtin.lsp_references, { desc = 'Telescope trough references' })
+    keymap.set('n', '<leader>fd', telescope.extensions.dap.configurations, { desc = 'Fuzzy find debug configurations' })
   end,
 }
