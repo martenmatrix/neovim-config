@@ -1,12 +1,12 @@
 -- https://www.youtube.com/watch?v=ooTcnx066Do
 
+vim.keymap.set('t', '<Esc><Esc>', [[<C-\><C-n>]], { desc = 'Exit terminal mode' })
+
 vim.api.nvim_create_autocmd('TermOpen', {
   group = vim.api.nvim_create_augroup('custom-term-open', { clear = true }),
   callback = function()
-    vim.opt.number = false
-    vim.opt.relativenumber = false
-
-    vim.keymap.set('t', '<Esc>', '<C-\\><C-n>', { buffer = 0, desc = 'Exit terminal mode' })
+    vim.opt_local.number = false
+    vim.opt_local.relativenumber = false
   end,
 })
 
