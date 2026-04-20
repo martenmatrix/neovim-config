@@ -6,6 +6,7 @@ return {
     'nvim-treesitter/nvim-treesitter',
     'nvim-tree/nvim-web-devicons',
     'molecule-man/telescope-menufacture', -- context menu for options
+    { 'nvim-telescope/telescope-fzf-native.nvim', build = 'make' },
   },
   config = function()
     local telescope = require 'telescope'
@@ -34,6 +35,13 @@ return {
       },
 
       extensions = {
+        fzf = {
+          fuzzy = true, -- false will only do exact matching
+          override_generic_sorter = true, -- override the generic sorter
+          override_file_sorter = true, -- override the file sorter
+          case_mode = 'smart_case', -- or "ignore_case" or "respect_case"
+          -- the default case_mode is "smart_case"
+        },
         menufacture = {
           mappings = {
             main_menu = { [{ 'i', 'n' }] = '<C-S>' }, -- open options context menu
@@ -43,6 +51,7 @@ return {
     }
 
     telescope.load_extension 'menufacture'
+    telescope.load_extension 'fzf'
 
     -- set keymaps
     local keymap = vim.keymap -- for conciseness
@@ -59,7 +68,12 @@ return {
     )
     keymap.set('n', '<leader>hc', builtin.commands, { desc = 'Telescope trough command mode commands' })
     keymap.set('n', '<leader>hk', builtin.keymaps, { desc = 'Telescope trough keymaps' })
-    keymap.set('n', '<leader>ht', builtin.help_tags, { desc = 'Telescope trough neovim functions and topics in general' })
-    keymap.set('n', '<leader>fR', builtin.lsp_references, {desc = 'Telescope trough references'})
+    keymap.set(
+      'n',
+      '<leader>ht',
+      builtin.help_tags,
+      { desc = 'Telescope trough neovim functions and topics in general' }
+    )
+    keymap.set('n', '<leader>fR', builtin.lsp_references, { desc = 'Telescope trough references' })
   end,
 }
