@@ -11,7 +11,9 @@ return {
   opts = {
     dir = session_dir,
   },
-  config = function()
+  config = function(_, opts)
+    require('persistence').setup(opts)
+
     vim.keymap.set('n', '<leader>qs', function()
       require('persistence').load()
     end, { desc = 'Load the session for the current directory' })

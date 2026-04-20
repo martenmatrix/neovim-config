@@ -43,7 +43,7 @@ return {
             end
         end)
 
-        vim.keymap.set({"n", "v"}, "<c-q>", function()
+        vim.keymap.set({"n", "v"}, "<c-S-q>", function()
             -- clone every cursor and disable the originals
             mc.duplicateCursors()
         end)
@@ -59,7 +59,7 @@ return {
         end)
 
         -- Align cursor columns.
-        vim.keymap.set("n", "<leader>a", mc.alignCursors)
+        vim.keymap.set("n", "<leader>mca", mc.alignCursors)
 
         -- Split visual selections by regex.
         vim.keymap.set("v", "S", mc.splitCursors)

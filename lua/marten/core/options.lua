@@ -35,5 +35,6 @@ opt.splitright = true
 -- split horizontal window to the bottom
 opt.splitbelow = true
 
--- when opening file, open current directory in nvim tree
-vim.g.nvim_tree_respect_buf_cwd = 1
+vim.g.markdown_fenced_languages = {
+  'ts=typescript',
+}

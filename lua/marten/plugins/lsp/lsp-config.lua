@@ -19,18 +19,18 @@ return {
     local mason_lspconfig = require 'mason-lspconfig'
 
     local setup_keymaps = function(buffer)
-      vim.keymap.set('n', 'K', vim.lsp.buf.hover, { buffer, desc = 'Show documentation for hovered text' })
-      vim.keymap.set('n', 'gd', vim.lsp.buf.definition, { buffer, desc = 'Go to definition' })
-      vim.keymap.set('n', 'gt', vim.lsp.buf.type_definition, { buffer, desc = 'Go to type definition' })
-      vim.keymap.set('n', 'gi', vim.lsp.buf.implementation, { buffer, desc = 'Go to implementation' })
-      vim.keymap.set('n', 'gr', vim.lsp.buf.rename, { buffer, desc = 'Rename' })
-      vim.keymap.set('n', 'gw', vim.diagnostic.open_float, { buffer, desc = 'Show warning/error in a floating window' })
+      vim.keymap.set('n', 'K', vim.lsp.buf.hover, { buffer = buffer, desc = 'Show documentation for hovered text' })
+      vim.keymap.set('n', 'gd', vim.lsp.buf.definition, { buffer = buffer, desc = 'Go to definition' })
+      vim.keymap.set('n', 'gt', vim.lsp.buf.type_definition, { buffer = buffer, desc = 'Go to type definition' })
+      vim.keymap.set('n', 'gi', vim.lsp.buf.implementation, { buffer = buffer, desc = 'Go to implementation' })
+      vim.keymap.set('n', 'gr', vim.lsp.buf.rename, { buffer = buffer, desc = 'Rename' })
+      vim.keymap.set('n', 'gw', vim.diagnostic.open_float, { buffer = buffer, desc = 'Show warning/error in a floating window' })
     end
 
     vim.api.nvim_create_autocmd('LspAttach', {
       group = vim.api.nvim_create_augroup('my.lsp.keys', {}),
-      callback = function()
-        setup_keymaps()
+      callback = function(ev)
+        setup_keymaps(ev.buf)
       end,
     })
 

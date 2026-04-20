@@ -24,10 +24,4 @@ return {
       require('luatab').setup {}
     end,
   },
-
-  config = function()
-    vim.g.markdown_fenced_languages = {
-      'ts=typescript',
-    }
-  end,
 }
