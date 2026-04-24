@@ -101,18 +101,34 @@ return {
           -- Options below are for debugpy, see https://github.com/microsoft/debugpy/wiki/Debug-configuration-settings for supported options
 
           program = "${file}"; -- This configuration will launch the current file if used.
+          justMyCode = false;
+          subProcess = true;
           pythonPath = function()
-            -- debugpy supports launching an application with a different interpreter then the one used to launch debugpy itself.
-            -- The code below looks for a `venv` or `.venv` folder in the current directly and uses the python within.
-            -- You could adapt this - to for example use the `VIRTUAL_ENV` environment variable.
-            local cwd = vim.fn.getcwd()
-            if vim.fn.executable(cwd .. '/venv/bin/python') == 1 then
-              return cwd .. '/venv/bin/python'
-            elseif vim.fn.executable(cwd .. '/.venv/bin/python') == 1 then
-              return cwd .. '/.venv/bin/python'
-            else
-              return '/usr/bin/python'
+            -- Walk up from the current buffer's file looking for the nearest
+            -- `.venv` or `venv`. Falls back to cwd, then system python.
+            local function find_venv(start_dir)
+              local dir = start_dir
+              while dir and dir ~= '/' and dir ~= '' do
+                if vim.fn.executable(dir .. '/.venv/bin/python') == 1 then
+                  return dir .. '/.venv/bin/python'
+                elseif vim.fn.executable(dir .. '/venv/bin/python') == 1 then
+                  return dir .. '/venv/bin/python'
+                end
+                local parent = vim.fn.fnamemodify(dir, ':h')
+                if parent == dir then break end
+                dir = parent
+              end
+              return nil
             end
+
+            local buf_file = vim.api.nvim_buf_get_name(0)
+            if buf_file ~= '' then
+              local found = find_venv(vim.fn.fnamemodify(buf_file, ':h'))
+              if found then return found end
+            end
+            local found = find_venv(vim.fn.getcwd())
+            if found then return found end
+            return '/usr/bin/python'
           end;
         },
       }

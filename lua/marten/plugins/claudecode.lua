@@ -26,6 +26,11 @@ return {
     terminal = {
       split_side = "right",
       split_width_percentage = 0.20,
+      snacks_win_opts = {
+        keys = {
+          term_normal = false,
+        },
+      },
     },
   }
 }
