@@ -31,4 +31,35 @@ To enable all Telescope features install `ripgrep` and `fd`:
 Some othe recommended installs:
 - `pnpm install neovim`
 
-For unknown reasons Mason does not always install `js-debug-adapter` automatically, so you'll might have to run `:MasonInstall js-debug-adapter` to use some debugging features with JavaScript or TypeScript. 
+For unknown reasons Mason does not always install `js-debug-adapter` automatically, so you'll might have to run `:MasonInstall js-debug-adapter` to use some debugging features with JavaScript or TypeScript.
+
+## Upgrading nvim-treesitter to the rewritten version (v1 / main branch post-2025)
+
+The rewritten nvim-treesitter dropped the `nvim-treesitter.configs` module entirely. If you upgrade and see `module 'nvim-treesitter.configs' not found`, update `lua/marten/plugins/treesitter.lua` as follows:
+
+**Old API** (`init` + `nvim-treesitter.configs`):
+```lua
+init = function()
+  require('nvim-treesitter').install { 'lua', 'typescript', ... }
+end
+```
+
+**New API** — the `init` hook still works for parser installation, but `highlight` and `indent` must be configured manually since they are no longer part of the plugin's setup. Replace the entire `config` block with:
+
+```lua
+init = function()
+  require('nvim-treesitter').install { 'lua', 'typescript', ... }
+end,
+config = function()
+  vim.api.nvim_create_autocmd('FileType', {
+    callback = function()
+      local ok = pcall(vim.treesitter.start)
+      if ok then
+        vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
+      end
+    end,
+  })
+end,
+```
+
+Highlighting and indentation are now provided by Neovim's built-in treesitter APIs (`vim.treesitter`). The `ensure_installed` / `highlight` / `indent` keys inside `nvim-treesitter.configs.setup` no longer exist.
