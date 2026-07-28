@@ -1,7 +1,7 @@
 return {
   'williamboman/mason-lspconfig.nvim',
   dependencies = {
-    'nvim-lspconfig',
+    'neovim/nvim-lspconfig',
     {
       'folke/lazydev.nvim',
       ft = 'lua', -- only load on lua files
@@ -83,17 +83,22 @@ return {
       },
     })
 
+    -- Only enable the styled-components TS plugin when it is actually installed
+    -- on this machine, otherwise ts_ls fails to load the plugin.
+    local styled_plugin_location = vim.fn.expand '~/Library/pnpm/global/5/node_modules'
+    local ts_plugins = {}
+    if vim.fn.isdirectory(styled_plugin_location .. '/@styled/typescript-styled-plugin') == 1 then
+      table.insert(ts_plugins, {
+        name = '@styled/typescript-styled-plugin',
+        location = styled_plugin_location,
+      })
+    end
+
     vim.lsp.config('ts_ls', {
-      root_dir = { 'package.json' },
+      root_markers = { 'package.json' },
       init_options = {
         -- https://github.com/typescript-language-server/typescript-language-server/blob/master/docs/configuration.md
-        plugins = {
-          {
-            name = '@styled/typescript-styled-plugin',
-            location = '/Users/martenb/Library/pnpm/global/5/node_modules'
-,
-          },
-        },
+        plugins = ts_plugins,
         tsserver = {
           logVerbosity = 'off',
         },
@@ -112,7 +117,32 @@ return {
       dynamicRegistration = true,
     })
 
-    local languages = { 'ts_ls', 'html', 'cssls', 'eslint', 'lua_ls', 'gopls', 'tinymist', 'pyright', 'denols', 'jdtls'}
+    -- Use the Xcode toolchain's own clangd (resolved via `xcrun -f clangd`, so it
+    -- follows `xcode-select`) instead of Mason's standalone LLVM build. Some
+    -- projects compile with the Apple/Xcode toolchain, and some sources pull in
+    -- toolchain-specific generated headers (e.g. a Swift C++ interop header like
+    -- `MyModule-Swift.h`, which uses the toolchain's attribute macros) plus the
+    -- macOS SDK. Only the frontend + resource-dir that produced those artifacts
+    -- can parse them; Mason's clangd floods the whole translation unit with errors
+    -- (which then makes every symbol — project types, NSString, etc. — show red).
+    -- --query-driver lets clangd inherit the driver's SDK/framework search paths.
+    local clangd_cmd = 'clangd'
+    if vim.fn.executable 'xcrun' == 1 then
+      local resolved = vim.fn.trim(vim.fn.system 'xcrun -f clangd 2>/dev/null')
+      if vim.v.shell_error == 0 and resolved ~= '' and vim.fn.filereadable(resolved) == 1 then
+        clangd_cmd = resolved
+      end
+    end
+    vim.lsp.config('clangd', {
+      cmd = {
+        clangd_cmd,
+        '--query-driver=/usr/bin/clang++,/usr/bin/clang,'
+          .. '/Applications/Xcode*.app/Contents/Developer/Toolchains/**/clang*,'
+          .. '/Library/Developer/CommandLineTools/usr/bin/clang*',
+      },
+    })
+
+    local languages = { 'ts_ls', 'html', 'cssls', 'eslint', 'lua_ls', 'gopls', 'tinymist', 'pyright', 'denols', 'jdtls', 'clangd' }
 
     mason_lspconfig.setup {
       automatic_installation = true,
@@ -120,6 +150,19 @@ return {
     }
 
     vim.lsp.enable(languages)
+
+    -- sourcekit-lsp ships with the Swift/Xcode toolchain and is not installable
+    -- via Mason, so enable it separately from the Mason-managed servers.
+    -- Restrict it to Swift: by default sourcekit-lsp also claims C/C++/Obj-C and,
+    -- for those, spawns its own clangd with `-compile_args_from=lsp` (no
+    -- compile_commands.json, so no include paths). That second server attaches
+    -- alongside our real clangd and floods C-family buffers with red diagnostics
+    -- (unresolved project symbols, custom macros, etc.). Let clangd own the
+    -- C-family filetypes; sourcekit-lsp handles only Swift.
+    vim.lsp.config('sourcekit', {
+      filetypes = { 'swift' },
+    })
+    vim.lsp.enable 'sourcekit'
 
     vim.lsp.log.set_level 'off'
   end,
