@@ -37,18 +37,7 @@ Run `pi install npm:pi-nvim` after installing pi.dev.
 
 ## C/C++ (clangd) with the Xcode toolchain on macOS
 
-When a C/C++/Obj-C project builds with the Xcode toolchain (Swift C++ interop, a beta SDK, etc.), clangd needs a few things or those files show red everywhere. The nvim side lives in `lua/marten/plugins/lsp/lsp-config.lua` (see the `clangd` / `sourcekit` blocks):
+For C/C++/Obj-C projects that build with the Xcode toolchain, `lua/marten/plugins/lsp/lsp-config.lua` does two things so files don't show red everywhere:
 
-1. **Toolchain clangd, not Mason's.** clangd is launched via `xcrun -f clangd` so it follows `xcode-select`. Mason's LLVM clangd can't parse toolchain-generated headers (e.g. Swift C++ interop headers) or the beta SDK and floods every file with errors.
-2. **sourcekit-lsp is restricted to `filetypes = { 'swift' }`.** By default it also claims C/C++/Obj-C and spawns its own arg-less clangd (`-compile_args_from=lsp`, no `compile_commands.json`), which attaches alongside the real clangd and paints includes red. Symptom: red in `.cpp` but not `.mm`. Diagnose with `ps -Ao pid,ppid,command | grep clangd` — a clangd whose parent is `sourcekit-lsp` is the culprit.
-
-Two pieces may live **outside** this repo (not version-controlled here):
-
-3. **`~/Library/Preferences/clangd/config.yaml`** — adds `-I` search paths for build-generated headers that `compile_commands.json` omits (e.g. a `<Module>-Swift.h` under Xcode's DerivedSources). Scope it to your project with `If: PathMatch:`. Handy as a temporary workaround for an in-progress C++↔Swift interop change; delete it once the include is gone.
-4. **`<project>/build/.../compile_commands.json`** — the fixed path your repo's `.clangd` points clangd at. If the build regenerates the DB somewhere under a build dir, symlink this fixed path to the newest one so it doesn't go stale.
-
-Verify a file parses clean without opening the editor:
-
-```bash
-"$(xcrun -f clangd)" --check=<path/to/file.cpp> 2>&1 | grep "checks completed"
-```
+- **Launches clangd via `xcrun -f clangd`** (follows `xcode-select`) instead of Mason's LLVM build, which can't parse toolchain-generated headers or a beta SDK.
+- **Restricts `sourcekit-lsp` to `filetypes = { 'swift' }`**, so it doesn't spawn a second arg-less clangd that fights the real one and paints includes red.

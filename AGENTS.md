@@ -23,6 +23,10 @@ Generalize it. Describe the *pattern* with a neutral placeholder instead of the 
 
 The Neovim setup should be useful to anyone, not tied to one employer's internal repo.
 
+## Conventions
+
+- **Install everything through Mason.** LSP servers, formatters, linters, and DAP adapters should be managed by Mason (`mason.nvim` / `mason-lspconfig`) so setup stays reproducible. Prefer adding a tool to Mason's `ensure_installed` over documenting a manual `brew`/`npm` install. Only reach outside Mason when a tool genuinely isn't available there (e.g. `sourcekit-lsp`, which ships with the Xcode toolchain).
+
 ## Repo gotchas
 
 - **treesitter:** `lua/marten/plugins/treesitter.lua` uses the rewritten nvim-treesitter (post-2025 `main`). There is no `nvim-treesitter.configs` — parsers install via the `init` hook's `require('nvim-treesitter').install {...}`, and highlight/indent are wired manually through Neovim's built-in `vim.treesitter` APIs. Don't reintroduce `nvim-treesitter.configs.setup` or `ensure_installed` / `highlight` / `indent` keys.
