@@ -33,3 +33,11 @@ To enable all Telescope features install `ripgrep` and `fd`:
 
 Some othe recommended installs:
 - `pnpm install neovim`
+
+## Terminal
+
+`<leader>tT` opens a 15-line terminal docked across the bottom of the current tab.
+Opening editor splits or sidebars keeps it at the bottom without stealing focus.
+Only terminals opened with this mapping are docked; plugin terminals keep their own layouts.
+
+Run the layout regression tests with `nvim --headless -u NONE -l tests/terminal.lua`.
