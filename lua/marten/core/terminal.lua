@@ -7,12 +7,11 @@ vim.api.nvim_create_autocmd('TermOpen', {
   callback = function()
     vim.opt_local.number = false
     vim.opt_local.relativenumber = false
+    vim.opt_local.winfixheight = true
+    vim.opt_local.winfixwidth = true
   end,
 })
 
 vim.keymap.set('n', '<leader>tT', function()
-  vim.cmd.vnew()
-  vim.cmd.term()
-  vim.cmd.wincmd 'J'
-  vim.api.nvim_win_set_height(0, 15)
+  vim.cmd('botright 15split | term')
 end, { desc = 'Open terminal' })
