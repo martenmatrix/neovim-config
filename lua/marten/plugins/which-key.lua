@@ -8,8 +8,8 @@ return {
   end,
   opts = {
     keys = {
-      scroll_down = '<C-j>', -- binding to scroll down inside the popup
-      scroll_up = '<C-k>', -- binding to scroll up inside the popup
+      scroll_down = '<C-k>', -- binding to scroll down inside the popup
+      scroll_up = '<C-l>', -- binding to scroll up inside the popup
     },
   },
 }

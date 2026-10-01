@@ -2,7 +2,16 @@ vim.g.mapleader = ' '
 
 local keymap = vim.keymap
 
--- window management
+-- home-row navigation: j/k/l/; instead of h/j/k/l; h takes over ;'s "repeat f/t"
+local nav_modes = { 'n', 'x', 'o' }
+keymap.set(nav_modes, 'j', 'h', { desc = 'Left' })
+keymap.set(nav_modes, 'k', 'v:count == 0 ? "gj" : "j"', { expr = true, desc = 'Down' })
+keymap.set(nav_modes, 'l', 'v:count == 0 ? "gk" : "k"', { expr = true, desc = 'Up' })
+keymap.set(nav_modes, ';', 'l', { desc = 'Right' })
+keymap.set(nav_modes, 'h', ';', { desc = 'Repeat last f/t/F/T' })
+
+-- window navigation (<C-j>/<C-k>/<C-l>/<C-;>) lives in plugins/init.lua with vim-tmux-navigator
+
 keymap.set('n', '<leader>sv', '<C-w>v', { desc = 'Split window vertically' }) -- split window vertically
 keymap.set('n', '<leader>sh', '<C-w>s', { desc = 'Split window horizontally' }) -- split window horizontally
 keymap.set('n', '<leader>se', '<C-w>=', { desc = 'Make splits equal size' }) -- make split windows equal width & height
