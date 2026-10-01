@@ -9,7 +9,7 @@ return {
     vim.g.neoformat_basic_format_retab = 1
 
     -- Enable trimmming of trailing whitespace globally
-    vim.g.neoformat_basic_format_trim = 1
+    vim.g.neoformat_basic_format_trim = 0
 
     -- LUA
     -- CONFIG
