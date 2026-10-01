@@ -4,6 +4,12 @@
 
 This is a personal Neovim configuration published as an **open-source** repository. Treat everything here as world-readable.
 
+## Default branch
+
+- **`edit-author` is the default branch** for the active configuration. Use it as the base for pull requests and integrations.
+- **`main` is a separate legacy branch**, not the default. Do not target it for active configuration changes.
+- If a request refers to "main", clarify whether Marten means the default branch (`edit-author`) or the literal legacy branch before merging or pushing.
+
 ## Do not commit confidential data from other codebases
 
 Never add anything that is internal to any private, proprietary, or employer codebase. In particular:

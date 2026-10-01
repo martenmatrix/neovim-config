@@ -6,6 +6,18 @@ return {
     or 'make',
   event = 'VeryLazy',
   version = false, -- Never set this value to "*"! Never!
+  config = function(_, opts)
+    local Sidebar = require 'avante.sidebar'
+    local initialize = Sidebar.initialize
+    Sidebar.initialize = function(self)
+      -- Avante otherwise normalizes terminal URIs into nonexistent file paths.
+      if vim.bo.buftype ~= '' then
+        vim.api.nvim_set_current_win(require('marten.core.windows').ensure_file_window())
+      end
+      return initialize(self)
+    end
+    require('avante').setup(opts)
+  end,
   ---@module 'avante'
   ---@type avante.Config
   opts = {

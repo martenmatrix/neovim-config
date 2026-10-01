@@ -59,6 +59,8 @@ The leader key is Space:
 
 Type your question in the input window, then press `Esc` followed by `Enter` to send it.
 Use `@file` to add another file to the chat. Avante reads the project's `AGENTS.md` automatically.
+Opening Avante from a terminal or file tree uses an editable file pane as its context, not the terminal URI or tree buffer.
+Run the context regression tests with `nvim --headless -u NONE -l tests/avante.lua` after installing the plugins.
 
 Reads, searches, diagnostics, chat bookkeeping, and all MCP calls run without approval prompts.
 Native file modifications and shell commands require approval. With inline approvals, use `Space af` from
@@ -67,8 +69,15 @@ Finish the review with Allow/Reject in the sidebar. Avoid Allow Always: it bypas
 MCP calls are also auto-approved by MCPHub, including tools that change remote data or files; those changes do not necessarily use Avante's native review UI.
 
 Telescope opens selected files in an editable file pane, even when launched from Avante or a terminal.
+If no file pane exists, Telescope creates an empty one first.
+
+## Terminal
+
 `Space tT` opens a 15-line terminal below a file pane, leaving the Avante sidebar on the right.
-If no file pane exists, the terminal and Telescope create an empty one first; opening a file is not required.
+If no file pane exists, an empty one is created first; opening a file is not required.
+Only terminals opened with this mapping have their height fixed; plugin terminals keep their own layouts.
+
+Run the layout regression tests with `nvim --headless -u NONE -l tests/terminal.lua`.
 
 ## C/C++ (clangd) with the Xcode toolchain on macOS
 
