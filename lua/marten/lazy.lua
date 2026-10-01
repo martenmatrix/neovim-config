@@ -11,8 +11,12 @@ if not (vim.uv or vim.loop).fs_stat(lazypath) then
 end
 vim.opt.rtp:prepend(lazypath)
 
-require('lazy').setup {
+require('lazy').setup({
   { import = 'marten.plugins' },
   { import = 'marten.plugins.dap' },
   { import = 'marten.plugins.lsp' },
-}
+}, {
+  -- No plugin in this config requires luarocks, so disable lazy's hererocks
+  -- bootstrap to avoid the "luarocks not installed" healthcheck error.
+  rocks = { enabled = false },
+})

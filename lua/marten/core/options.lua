@@ -1,6 +1,11 @@
 -- use tree-style view in Netrw file explorer
 vim.cmd 'let g:netrw_liststyle = 3'
 
+-- disable unused remote-plugin providers to keep :checkhealth clean
+-- (no plugin in this config uses perl or ruby remote plugins)
+vim.g.loaded_perl_provider = 0
+vim.g.loaded_ruby_provider = 0
+
 local opt = vim.opt
 
 -- display line numbers
@@ -26,6 +31,9 @@ opt.smartcase = true
 
 -- higlight current cursor line
 opt.cursorline = true
+
+-- enable 24-bit RGB colors so colorschemes render with true color
+opt.termguicolors = true
 
 -- use system clipboard as default register
 opt.clipboard:append 'unnamedplus'
