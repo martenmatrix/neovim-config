@@ -35,6 +35,14 @@ For unknown reasons Mason does not always install `js-debug-adapter` automatical
 
 Run `pi install npm:pi-nvim` after installing pi.dev.
 
+## Terminal
+
+`<leader>tT` opens a 15-line terminal docked across the bottom of the current tab.
+Opening editor splits or sidebars keeps it at the bottom without stealing focus.
+Only terminals opened with this mapping are docked; plugin terminals keep their own layouts.
+
+Run the layout regression tests with `nvim --headless -u NONE -l tests/terminal.lua`.
+
 ## C/C++ (clangd) with the Xcode toolchain on macOS
 
 For C/C++/Obj-C projects that build with the Xcode toolchain, `lua/marten/plugins/lsp/lsp-config.lua` does two things so files don't show red everywhere:
