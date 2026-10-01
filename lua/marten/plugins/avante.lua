@@ -12,7 +12,22 @@ return {
     instructions_file = 'avante.md',
     provider = 'copilot',
     behaviour = {
-      auto_approve_tool_permissions = true,
+      auto_approve_tool_permissions = {
+        'view',
+        'ls',
+        'glob',
+        'grep',
+        'get_diagnostics',
+        'read_todos',
+        'write_todos',
+        'think',
+        'attempt_completion',
+        'delete_tool_use_messages',
+        'use_mcp_tool',
+        'access_mcp_resource',
+      },
+      auto_focus_on_diff_view = true,
+      auto_apply_diff_after_generation = false,
     },
     system_prompt = function()
       local hub = require('mcphub').get_hub_instance()
@@ -25,16 +40,31 @@ return {
     end,
     providers = {
       copilot = {
-        model = 'gpt-5.6-sol',
+        model = 'claude-sonnet-5.5',
+        timeout = 120000,
         extra_request_body = {
           reasoning_effort = 'high',
         },
+        parse_curl_args = function(self, prompt_opts)
+          local request_provider = setmetatable(
+            vim.tbl_extend('force', self, { extra_request_body = vim.deepcopy(self.extra_request_body) }),
+            getmetatable(self)
+          )
+          local request = require('avante.providers.copilot').parse_curl_args(request_provider, prompt_opts)
+          -- Avante's OpenAI filter drops Claude effort, but Copilot supports it.
+          if self.model:match '^claude%-' then
+            request.body.reasoning_effort = self.extra_request_body.reasoning_effort
+          end
+          return request
+        end,
       },
     },
   },
   dependencies = {
     'nvim-lua/plenary.nvim',
     'MunifTanjim/nui.nvim',
+    { 'ColinKennedy/mega.cmdparse', dependencies = { 'ColinKennedy/mega.logging' } },
+    'github/copilot.vim',
     'ravitemer/mcphub.nvim',
     --- The below dependencies are optional,
     'nvim-mini/mini.pick', -- for file_selector provider mini.pick

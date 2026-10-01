@@ -14,6 +14,9 @@ return {
 
     telescope.setup {
       defaults = {
+        get_selection_window = function()
+          return require('marten.core.windows').ensure_file_window()
+        end,
         file_ignore_patterns = {
           'pnpm%-lock.yaml',
         },

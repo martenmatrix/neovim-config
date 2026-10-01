@@ -7,6 +7,7 @@ return {
   opts = {
     config = vim.fn.expand("~/.copilot/mcp-config.json"),
     use_bundled_binary = true,
+    auto_approve = true,
     extensions = {
       avante = {
         enabled = true,

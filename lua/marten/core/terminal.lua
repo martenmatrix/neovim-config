@@ -8,10 +8,11 @@ vim.api.nvim_create_autocmd('TermOpen', {
     vim.opt_local.number = false
     vim.opt_local.relativenumber = false
     vim.opt_local.winfixheight = true
-    vim.opt_local.winfixwidth = true
   end,
 })
 
 vim.keymap.set('n', '<leader>tT', function()
-  vim.cmd('botright 15split | term')
+  local win = require('marten.core.windows').ensure_file_window()
+  vim.api.nvim_set_current_win(win)
+  vim.cmd 'belowright 15split | term'
 end, { desc = 'Open terminal' })
