@@ -45,6 +45,8 @@ Avante's required `mega.cmdparse` and `mega.logging` dependencies are installed 
 Avante uses your Copilot subscription through `github/copilot.vim`. Run `:Copilot setup` to sign in if needed.
 The default is `claude-sonnet-5.5` with high reasoning effort. The Copilot request override preserves Claude's effort setting, which Avante's OpenAI parameter filter otherwise removes.
 
+[Optional remote Figma bridge](tools/figma-copilot-bridge/README.md): read-only Figma tools through the Copilot SDK, isolated in one removable directory.
+
 The leader key is Space:
 
 | Keys | Action |
