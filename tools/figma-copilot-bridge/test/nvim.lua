@@ -14,7 +14,7 @@ end
 local config = vim.fn.tempname()
 vim.fn.writefile({ '{"mcpServers":{}}' }, config)
 local State = require 'mcphub.state'
-State.config = require('mcphub.config').setup { config = config }
+State.config = require('mcphub.config').setup { config = config, auto_approve = true }
 assert(require('mcphub.utils.config_manager').load_config(config))
 local updates = 0
 local hub = {
@@ -56,7 +56,18 @@ local ok, err = xpcall(function()
     end),
     table.concat(notifications, '\n')
   )
-  assert(#bridge.server.capabilities.tools == (live and 7 or 3))
+  assert(live and #bridge.server.capabilities.tools > 7 or not live and #bridge.server.capabilities.tools == 6)
+  local tool_names = {}
+  for _, tool in ipairs(bridge.server.capabilities.tools) do
+    tool_names[tool.name] = true
+    if tool.name == 'create_new_file' then
+      assert(not tool.annotations or not tool.annotations.readOnlyHint, 'Writes must not be labelled read-only')
+    end
+  end
+  assert(
+    tool_names.get_libraries and tool_names.create_new_file,
+    'Full tool coverage must include new reads and writes'
+  )
   local prompt = require('mcphub.utils.prompt').get_active_servers_prompt({ bridge.server }, false, false)
   assert(prompt:find 'figma%-copilot', 'Native server must appear in model-facing metadata')
   assert(prompt:find 'get_screenshot', 'Figma tool schemas must appear in the model prompt')
@@ -87,6 +98,100 @@ local ok, err = xpcall(function()
     return
   end
   assert(result.result.content[1].text == '{}', 'Empty arguments must remain a JSON object')
+  local function begin_call(name, arguments)
+    local state = {}
+    hub:call_tool('figma-copilot', name, arguments, {
+      callback = function(value, failure)
+        state.result, state.error, state.done = value, failure, true
+      end,
+    })
+    return state
+  end
+  local function approval_window()
+    for _, win in ipairs(vim.api.nvim_list_wins()) do
+      local buf = vim.api.nvim_win_get_buf(win)
+      if vim.api.nvim_buf_get_name(buf):match '^figma%-copilot://approval/' then
+        return win, buf
+      end
+    end
+  end
+  local function answer(key)
+    assert(
+      vim.wait(2000, function()
+        return approval_window() ~= nil
+      end),
+      'Approval window was not shown'
+    )
+    local win, buf = approval_window()
+    vim.api.nvim_set_current_win(win)
+    local mapping = vim.fn.maparg(key, 'n', false, true)
+    assert(type(mapping.callback) == 'function', 'Missing approval keymap: ' .. key)
+    mapping.callback()
+    return buf
+  end
+  local function wait_call(state)
+    assert(
+      vim.wait(2000, function()
+        return state.done
+      end),
+      'Approved tool call did not finish'
+    )
+    assert(not state.error, state.error)
+    return state.result.result
+  end
+  local rejected = begin_call('create_new_file', { name = 'Fixture' })
+  answer '<CR>'
+  assert(wait_call(rejected).isError, 'Enter must reject instead of approving')
+  local inspected = call('whoami', { inspect = true })
+  assert(inspected.result.content[1].text == '[]', 'Rejected tools must not execute')
+
+  local args = { name = 'Fixture', code = 'line1\n' .. string.rep('x', 8192) .. '\nline3' }
+  local approved = begin_call('create_new_file', args)
+  assert(vim.wait(2000, function()
+    return approval_window() ~= nil
+  end))
+  local _, review_buf = approval_window()
+  local review = table.concat(vim.api.nvim_buf_get_lines(review_buf, 0, -1, false), '\n')
+  assert(review:find(string.rep('x', 8192), 1, true), 'Approval must show complete arguments without truncation')
+  answer 'a'
+  assert(not wait_call(approved).isError)
+  inspected = call('whoami', { inspect = true })
+  assert(
+    vim.deep_equal(
+      vim.json.decode(inspected.result.content[1].text),
+      { { name = 'create_new_file', arguments = args } }
+    )
+  )
+
+  local again = begin_call('create_new_file', args)
+  answer 'q'
+  assert(wait_call(again).isError, 'Allow once must not approve a subsequent call')
+  local first = begin_call('get_libraries', {})
+  local second = begin_call('future_tool', {})
+  answer 'a'
+  answer 'r'
+  assert(not wait_call(first).isError, 'New read tools must work after confirmation')
+  assert(wait_call(second).isError, 'Queued requests must have independent decisions')
+  assert(not approval_window(), 'Completed approvals must close their windows')
+
+  local dismissed = begin_call('future_tool', {})
+  assert(vim.wait(2000, function()
+    return approval_window() ~= nil
+  end))
+  vim.api.nvim_win_close(approval_window(), true)
+  assert(wait_call(dismissed).isError, 'Closing the review window must cancel instead of approving')
+
+  local interrupted = begin_call('create_new_file', {})
+  assert(vim.wait(2000, function()
+    return approval_window() ~= nil
+  end))
+  bridge.stop()
+  assert(wait_call(interrupted).isError)
+  assert(not approval_window(), 'Stopping the bridge must close unanswered approvals')
+  bridge.start()
+  assert(vim.wait(5000, function()
+    return bridge.server.status == 'connected'
+  end))
   local long = call('get_metadata', { nodeId = 'long' })
   assert(#long.result.content[1].text == 131072, 'Fragmented stdout must preserve the complete result')
 

@@ -14,12 +14,14 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { AjvJsonSchemaValidator } from "@modelcontextprotocol/sdk/validation/ajv-provider.js";
 import type { JsonSchemaType, JsonSchemaValidator } from "@modelcontextprotocol/sdk/validation/types.js";
+import { randomUUID } from "node:crypto";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
+import { isDeepStrictEqual } from "node:util";
 
-export const READ_TOOLS = [
+export const AUTO_APPROVED_READ_TOOLS = [
   "whoami",
   "get_design_context",
   "get_metadata",
@@ -29,6 +31,32 @@ export const READ_TOOLS = [
   "get_code_connect_map",
 ] as const;
 
+export const APPROVAL_TIMEOUT_MS = 300_000;
+export const TOOL_TIMEOUT_MS = APPROVAL_TIMEOUT_MS + 60_000;
+
+export type ApprovalRequest = {
+  name: string;
+  arguments: Record<string, unknown>;
+  reason: string;
+};
+export type ApprovalHandler = (request: ApprovalRequest) => Promise<boolean>;
+
+export async function confirmFigmaCall(
+  request: ApprovalRequest,
+  confirm?: ApprovalHandler,
+): Promise<void> {
+  if (!confirm) {
+    throw new Error(`Figma ${request.name} requires explicit confirmation. Use a client with form elicitation support.`);
+  }
+  if (!(await confirm({ ...request, arguments: structuredClone(request.arguments) }))) {
+    throw new Error(`Figma ${request.name} was rejected or cancelled. No permission was granted.`);
+  }
+}
+
+export function isAutoApprovedReadTool(name: string): boolean {
+  return AUTO_APPROVED_READ_TOOLS.some((tool) => tool === name);
+}
+
 type Session = {
   sessionId: string;
   rpc: {
@@ -36,7 +64,7 @@ type Session = {
       CopilotSession["rpc"]["tools"],
       "initializeAndValidate" | "getCurrentMetadata" | "execute"
     >;
-    mcp: Pick<CopilotSession["rpc"]["mcp"], "listConfigured">;
+    mcp: Pick<CopilotSession["rpc"]["mcp"], "listConfigured" | "listTools">;
   };
 };
 
@@ -53,17 +81,14 @@ type Options = {
   clientFactory?: (options: CopilotClientOptions) => RuntimeClient;
   copilotHome?: string;
   timeoutMs?: number;
+  approvalTimeoutMs?: number;
   pollMs?: number;
 };
 
 export interface FigmaBackend {
   listTools(): Promise<Tool[]>;
-  callTool(name: string, args: Record<string, unknown>): Promise<CallToolResult>;
+  callTool(name: string, args: Record<string, unknown>, confirm?: ApprovalHandler): Promise<CallToolResult>;
   close(): Promise<void>;
-}
-
-function isReadTool(name: string): boolean {
-  return READ_TOOLS.some((tool) => tool === name);
 }
 
 function isJson(value: unknown): value is JsonValue {
@@ -73,20 +98,6 @@ function isJson(value: unknown): value is JsonValue {
   if (typeof value !== "object" || Object.getPrototypeOf(value) !== Object.prototype) return false;
   return Object.values(value).every(isJson);
 }
-
-export const approveReadOnlyFigma: PermissionHandler = (request) => {
-  if (
-    !request.managedApprovalRequired &&
-    request.kind === "mcp" &&
-    request.serverName === "figma" &&
-    request.readOnly &&
-    (isReadTool(request.toolName) ||
-      READ_TOOLS.some((tool) => request.toolName === `figma-${tool}`))
-  ) {
-    return { kind: "approve-once" };
-  }
-  return { kind: "reject", feedback: "This bridge permits only read-only Figma tools." };
-};
 
 export function toMcpResult(result: RuntimeResult): CallToolResult {
   if (typeof result === "string") {
@@ -141,6 +152,14 @@ export class FigmaRuntime implements FigmaBackend {
   private initialized: Promise<Tool[]> | undefined;
   private closing: Promise<void> | undefined;
   private closed = false;
+  private readonly abort = new AbortController();
+  private readonly invocations = new Map<string, {
+    name: string;
+    runtimeName: string;
+    arguments: Record<string, unknown>;
+    confirm: ApprovalHandler | undefined;
+    approved: boolean;
+  }>();
   private readonly tools = new Map<
     string,
     { tool: Tool; runtimeName: string; validate: JsonSchemaValidator<unknown> }
@@ -151,12 +170,14 @@ export class FigmaRuntime implements FigmaBackend {
       clientFactory: options.clientFactory ?? ((config) => new CopilotClient(config)),
       copilotHome: options.copilotHome ?? process.env.COPILOT_HOME ?? join(homedir(), ".copilot"),
       timeoutMs: options.timeoutMs ?? 60_000,
+      approvalTimeoutMs: options.approvalTimeoutMs ?? APPROVAL_TIMEOUT_MS,
       pollMs: options.pollMs ?? 250,
     };
   }
 
-  private async bounded<T>(operation: Promise<T>, action: string): Promise<T> {
+  private async bounded<T>(operation: Promise<T>, action: string, timeoutMs = this.options.timeoutMs): Promise<T> {
     let timer: NodeJS.Timeout | undefined;
+    let cancel: (() => void) | undefined;
     try {
       return await Promise.race([
         operation,
@@ -164,16 +185,53 @@ export class FigmaRuntime implements FigmaBackend {
           timer = setTimeout(() => {
             this.closed = true;
             reject(new Error(`${action} timed out. Restart the Figma bridge.`));
+            this.abort.abort();
             void this.client?.forceStop().catch((error: unknown) => {
               console.error("Figma bridge runtime cleanup failed:", error);
             });
-          }, this.options.timeoutMs);
+          }, timeoutMs);
+        }),
+        new Promise<never>((_, reject) => {
+          cancel = () => reject(new Error("Figma bridge is closed."));
+          this.abort.signal.addEventListener("abort", cancel, { once: true });
+          if (this.abort.signal.aborted) cancel();
         }),
       ]);
     } finally {
       clearTimeout(timer);
+      if (cancel) this.abort.signal.removeEventListener("abort", cancel);
     }
   }
+
+  private readonly permissionHandler: PermissionHandler = async (request) => {
+    if (this.closed || request.kind !== "mcp" || request.serverName !== "figma") {
+      return { kind: "reject", feedback: "This bridge permits only the exact requested Figma operation." };
+    }
+    const toolCallId = request.toolCallId;
+    const invocation = toolCallId ? this.invocations.get(toolCallId) : undefined;
+    if (
+      !toolCallId ||
+      !invocation ||
+      (request.toolName !== invocation.name && request.toolName !== invocation.runtimeName) ||
+      (request.args !== undefined && !isDeepStrictEqual(request.args, invocation.arguments))
+    ) {
+      return { kind: "reject", feedback: "This bridge permits only the exact requested Figma operation." };
+    }
+    if (!invocation.approved && (!request.readOnly || request.managedApprovalRequired)) {
+      await this.bounded(confirmFigmaCall({
+        name: invocation.name,
+        arguments: invocation.arguments,
+        reason: request.managedApprovalRequired
+          ? "Organization policy requires an explicit user decision."
+          : "The runtime reports that this operation is not read-only.",
+      }, invocation.confirm), `Figma ${invocation.name} approval`, this.options.approvalTimeoutMs);
+      if (this.closed || this.invocations.get(toolCallId) !== invocation) {
+        return { kind: "reject", feedback: "This Figma invocation is no longer active." };
+      }
+      invocation.approved = true;
+    }
+    return { kind: "approve-once" };
+  };
 
   private async disabledServers(): Promise<string[]> {
     let text: string;
@@ -225,12 +283,12 @@ export class FigmaRuntime implements FigmaBackend {
       mcpOAuthTokenStorage: "persistent",
       infiniteSessions: { enabled: false },
       largeOutput: { enabled: false },
-      onPermissionRequest: approveReadOnlyFigma,
+      onPermissionRequest: this.permissionHandler,
       mcpServers: {
         figma: {
           type: "http",
           url: "https://mcp.figma.com/mcp",
-          tools: [...READ_TOOLS],
+          tools: ["*"],
           timeout: this.options.timeoutMs,
         },
       },
@@ -257,15 +315,22 @@ export class FigmaRuntime implements FigmaBackend {
     }
     await this.session.rpc.tools.initializeAndValidate();
     if (this.closed) throw new Error("Figma bridge is closed.");
+    const upstream = await this.session.rpc.mcp.listTools({ serverName: "figma" });
     const metadata = await this.session.rpc.tools.getCurrentMetadata();
     const validator = new AjvJsonSchemaValidator();
     for (const item of metadata.tools ?? []) {
-      if (item.mcpServerName !== "figma" || !item.mcpToolName || !isReadTool(item.mcpToolName)) continue;
+      if (item.mcpServerName !== "figma" || !item.mcpToolName) continue;
+      if (this.tools.has(item.mcpToolName)) {
+        throw new Error(`Duplicate Figma tool '${item.mcpToolName}' in runtime metadata.`);
+      }
       const tool = ToolSchema.parse({
         name: item.mcpToolName,
         description: item.description,
         inputSchema: item.input_schema,
-        annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
+        ...("title" in item && typeof item.title === "string" ? { title: item.title } : {}),
+        ...(isAutoApprovedReadTool(item.mcpToolName)
+          ? { annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true } }
+          : {}),
       });
       this.tools.set(tool.name, {
         tool,
@@ -275,7 +340,13 @@ export class FigmaRuntime implements FigmaBackend {
       });
     }
     if (this.tools.size === 0) {
-      throw new Error("Copilot returned no read-only Figma tools. Check SDK/runtime compatibility and Figma authentication.");
+      throw new Error("Copilot returned no Figma tools. Check SDK/runtime compatibility and Figma authentication.");
+    }
+    const upstreamNames = new Set(upstream.tools.map((tool) => tool.name));
+    const missing = [...upstreamNames].filter((name) => !this.tools.has(name));
+    const unexpected = [...this.tools.keys()].filter((name) => !upstreamNames.has(name));
+    if (missing.length || unexpected.length) {
+      throw new Error(`Incomplete Figma tool coverage: missing [${missing.join(", ")}], unexpected [${unexpected.join(", ")}]. Check SDK compatibility and policy.`);
     }
     return [...this.tools.values()].map(({ tool }) => tool);
   }
@@ -289,26 +360,52 @@ export class FigmaRuntime implements FigmaBackend {
     return this.initialized;
   }
 
-  async callTool(name: string, args: Record<string, unknown>): Promise<CallToolResult> {
-    if (!isReadTool(name)) throw new Error(`Tool '${name}' is not allowed by this read-only bridge.`);
+  async callTool(name: string, args: Record<string, unknown>, confirm?: ApprovalHandler): Promise<CallToolResult> {
     await this.listTools();
     const entry = this.tools.get(name);
     if (!entry || !this.session) throw new Error(`Figma tool '${name}' is not available.`);
     const validation = entry.validate(args);
     if (!validation.valid) throw new Error(`Invalid ${name} arguments: ${validation.errorMessage}`);
     if (!isJson(args)) throw new Error(`Invalid ${name} arguments: expected JSON values.`);
-    const result = await this.bounded(
-      this.session.rpc.tools.execute({
-        name: entry.runtimeName,
-        arguments: args,
-      }),
-      `Figma ${name}`,
-    );
-    return toMcpResult(result);
+    const argumentsSnapshot = structuredClone(args);
+    const invocation = {
+      name,
+      runtimeName: entry.runtimeName,
+      arguments: argumentsSnapshot,
+      confirm,
+      approved: false,
+    };
+    if (!isAutoApprovedReadTool(name)) {
+      await this.bounded(confirmFigmaCall({
+        name,
+        arguments: argumentsSnapshot,
+        reason: "This operation is not on the bridge's audited read-only list. It may change remote data, run code, or incur costs.",
+      }, confirm), `Figma ${name} approval`, this.options.approvalTimeoutMs);
+      invocation.approved = true;
+    }
+    if (this.closed || !this.session) throw new Error("Figma bridge is closed.");
+    const toolCallId = randomUUID();
+    this.invocations.set(toolCallId, invocation);
+    try {
+      const result = await this.bounded(
+        this.session.rpc.tools.execute({
+          name: entry.runtimeName,
+          arguments: argumentsSnapshot,
+          toolCallId,
+        }),
+        `Figma ${name}`,
+        this.options.timeoutMs + this.options.approvalTimeoutMs,
+      );
+      return toMcpResult(result);
+    } finally {
+      this.invocations.delete(toolCallId);
+    }
   }
 
   async close(): Promise<void> {
     this.closed = true;
+    this.abort.abort();
+    this.invocations.clear();
     this.closing ??= this.cleanup();
     return this.closing;
   }

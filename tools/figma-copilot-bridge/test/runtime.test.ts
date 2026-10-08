@@ -5,9 +5,9 @@ import { join } from "node:path";
 import test from "node:test";
 import type { SessionConfig } from "@github/copilot-sdk";
 import {
-  approveReadOnlyFigma,
+  AUTO_APPROVED_READ_TOOLS,
   FigmaRuntime,
-  READ_TOOLS,
+  isAutoApprovedReadTool,
   toMcpResult,
   type RuntimeClient,
 } from "../src/runtime.js";
@@ -26,31 +26,53 @@ async function fixture(t: test.TestContext) {
   let stops = 0;
   let forceStops = 0;
   const deleted: string[] = [];
-  const calls: unknown[] = [];
+  const calls: Parameters<Session["rpc"]["tools"]["execute"]>[0][] = [];
   let result: Result = { resultType: "success", textResultForLlm: "design context" };
+  const metadata = [
+    ...AUTO_APPROVED_READ_TOOLS.map((name) => ({
+      name: `figma-${name}`,
+      mcpServerName: "figma",
+      mcpToolName: name,
+      description: `Read ${name}`,
+      input_schema: name === "get_metadata"
+        ? { type: "object", properties: { nodeId: { type: "string" } }, required: ["nodeId"], additionalProperties: false }
+        : { type: "object", properties: {} },
+    })),
+    {
+      name: "figma-create_new_file", mcpServerName: "figma", mcpToolName: "create_new_file", description: "Write",
+      input_schema: { type: "object", properties: { name: { type: "string" } }, required: ["name"], additionalProperties: false },
+    },
+    {
+      name: "figma-library_lookup", mcpServerName: "figma", mcpToolName: "get_libraries", description: "Read libraries",
+      input_schema: { type: "object", properties: {} },
+    },
+    {
+      name: "figma-future_tool", mcpServerName: "figma", mcpToolName: "future_tool", description: "Unknown future operation",
+      input_schema: { type: "object", properties: {} },
+    },
+    { name: "other-whoami", mcpServerName: "other-server", mcpToolName: "whoami", description: "Foreign" },
+  ];
   const session: Session = {
     sessionId: "owned-test-session",
     rpc: {
       tools: {
         initializeAndValidate: async () => ({}),
-        getCurrentMetadata: async () => ({
-          tools: [
-            ...READ_TOOLS.map((name) => ({
-              name: `figma-${name}`,
-              mcpServerName: "figma",
-              mcpToolName: name,
-              description: `Read ${name}`,
-              input_schema: name === "get_metadata"
-                ? { type: "object", properties: { nodeId: { type: "string" } }, required: ["nodeId"], additionalProperties: false }
-                : { type: "object", properties: {} },
-            })),
-            { name: "figma-create_new_file", mcpServerName: "figma", mcpToolName: "create_new_file", description: "Write" },
-            { name: "other-whoami", mcpServerName: "other-server", mcpToolName: "whoami", description: "Foreign" },
-          ],
-        }),
-        execute: async (args) => { calls.push(args); return result; },
+        getCurrentMetadata: async () => ({ tools: metadata }),
+        execute: async (args) => {
+          const tool = metadata.find((item) => item.name === args.name);
+          if (!tool || !sessionConfig?.onPermissionRequest) throw new Error("Fixture was not initialized");
+          const decision = await sessionConfig.onPermissionRequest({
+            kind: "mcp", serverName: "figma", toolName: tool.mcpToolName, toolTitle: tool.description,
+            args: args.arguments, readOnly: isAutoApprovedReadTool(tool.mcpToolName),
+            ...(args.toolCallId ? { toolCallId: args.toolCallId } : {}),
+          }, { sessionId: session.sessionId });
+          if (decision.kind !== "approve-once") return { resultType: "denied", textResultForLlm: "Denied by runtime" };
+          calls.push(args);
+          return result;
+        },
       },
       mcp: {
+        listTools: async () => ({ tools: metadata.filter((tool) => tool.mcpServerName === "figma").map((tool) => ({ name: tool.mcpToolName })) }),
         listConfigured: async () => ({ servers: [
           { name: "figma", enabled: true, live: { status: "connected" } },
           { name: "other-server", enabled: false },
@@ -85,23 +107,24 @@ async function fixture(t: test.TestContext) {
   };
 }
 
-test("discovers original schemas once, disables other servers, and never modifies global config", async (t) => {
+test("discovers every upstream tool and original schema once, disables other servers, and never modifies global config", async (t) => {
   const f = await fixture(t);
   let discovery = 0;
   f.session.rpc.tools.initializeAndValidate = async () => { discovery++; return {}; };
   const [tools, again] = await Promise.all([f.runtime.listTools(), f.runtime.listTools()]);
   assert.deepEqual(tools, again);
-  assert.deepEqual(tools.map((tool) => tool.name), [...READ_TOOLS]);
+  assert.deepEqual(tools.map((tool) => tool.name), [...AUTO_APPROVED_READ_TOOLS, "create_new_file", "get_libraries", "future_tool"]);
   assert.equal(discovery, 2);
   assert.deepEqual(tools.find((tool) => tool.name === "get_metadata")?.inputSchema.required, ["nodeId"]);
-  assert(tools.every((tool) => tool.annotations?.readOnlyHint));
+  assert(tools.filter((tool) => isAutoApprovedReadTool(tool.name)).every((tool) => tool.annotations?.readOnlyHint));
+  assert(tools.filter((tool) => !isAutoApprovedReadTool(tool.name)).every((tool) => tool.annotations === undefined));
   assert.deepEqual(f.config?.disabledMcpServers, ["other-server", "github-mcp-server", "githubiq"]);
   assert.deepEqual(f.config?.availableTools, ["mcp:*"]);
   assert.equal(f.config?.enableConfigDiscovery, false);
   assert.equal(f.config?.enableSessionStore, false);
   assert.equal(f.config?.remoteSession, "off");
   assert.deepEqual(f.config?.largeOutput, { enabled: false });
-  assert.deepEqual(f.config?.mcpServers?.figma?.tools, [...READ_TOOLS]);
+  assert.deepEqual(f.config?.mcpServers?.figma?.tools, ["*"]);
   assert.equal(await readFile(join(f.home, "mcp-config.json"), "utf8"), f.configText);
   const cwd = f.cwd;
   assert(cwd?.startsWith(join(tmpdir(), "figma-copilot-bridge-")));
@@ -124,18 +147,99 @@ test("waits for asynchronous connection and invokes the canonical runtime name w
   const result = await f.runtime.callTool("get_metadata", { nodeId: "1:2" });
   assert.equal(observations, 3);
   assert.equal(result.isError, false);
-  assert.deepEqual(f.calls, [{ name: "figma-get_metadata", arguments: { nodeId: "1:2" } }]);
+  assert.deepEqual(f.calls.map(({ toolCallId, ...call }) => {
+    assert.equal(typeof toolCallId, "string");
+    return call;
+  }), [{ name: "figma-get_metadata", arguments: { nodeId: "1:2" } }]);
 });
 
-test("rejects write tools, foreign names, invalid schemas, and non-JSON arguments before invocation", async (t) => {
+test("rejects foreign names, invalid schemas, and non-JSON arguments before invocation", async (t) => {
   const f = await fixture(t);
-  for (const name of ["create_new_file", "figma-whoami", "other-whoami", "shell"]) {
-    await assert.rejects(f.runtime.callTool(name, {}), /not allowed/);
+  for (const name of ["figma-whoami", "other-whoami", "shell", "not_advertised"]) {
+    await assert.rejects(f.runtime.callTool(name, {}), /not available/);
   }
   await assert.rejects(f.runtime.callTool("get_metadata", {}), /Invalid get_metadata arguments/);
   await assert.rejects(f.runtime.callTool("get_metadata", { nodeId: 2 }), /Invalid get_metadata arguments/);
   await assert.rejects(f.runtime.callTool("whoami", { unsupported: undefined }), /expected JSON/);
   assert.deepEqual(f.calls, []);
+});
+
+test("fails discovery rather than silently omitting upstream tools", async (t) => {
+  const f = await fixture(t);
+  f.session.rpc.mcp.listTools = async () => ({ tools: [{ name: "missing_tool" }] });
+  await assert.rejects(f.runtime.listTools(), /Incomplete Figma tool coverage: missing \[missing_tool\]/);
+});
+
+test("refuses writes and unknown read operations without explicit confirmation", async (t) => {
+  const f = await fixture(t);
+  for (const [name, args] of [
+    ["create_new_file", { name: "Fixture" }],
+    ["get_libraries", {}],
+    ["future_tool", {}],
+  ] as const) {
+    await assert.rejects(f.runtime.callTool(name, args), /requires explicit confirmation/);
+    await assert.rejects(f.runtime.callTool(name, args, async () => false), /rejected or cancelled/);
+  }
+  assert.deepEqual(f.calls, []);
+});
+
+test("approved writes, new reads, and future tools use their exact discovered runtime names and arguments", async (t) => {
+  const f = await fixture(t);
+  const approvals: string[] = [];
+  const confirm = async (request: { name: string }) => { approvals.push(request.name); return true; };
+  await f.runtime.callTool("create_new_file", { name: "Fixture" }, confirm);
+  await f.runtime.callTool("get_libraries", { fileKey: "fixture" }, confirm);
+  await f.runtime.callTool("future_tool", { payload: { id: 1 } }, confirm);
+  assert.deepEqual(approvals, ["create_new_file", "get_libraries", "future_tool"]);
+  assert.deepEqual(f.calls.map(({ toolCallId, ...call }) => {
+    assert.equal(typeof toolCallId, "string");
+    return call;
+  }), [
+    { name: "figma-create_new_file", arguments: { name: "Fixture" } },
+    { name: "figma-library_lookup", arguments: { fileKey: "fixture" } },
+    { name: "figma-future_tool", arguments: { payload: { id: 1 } } },
+  ]);
+  assert.equal(new Set(f.calls.map((call) => call.toolCallId)).size, 3);
+  await assert.rejects(f.runtime.callTool("create_new_file", { name: "Fixture" }, async () => false), /rejected/);
+  assert.equal(f.calls.length, 3, "Allow once must not approve the next call");
+});
+
+test("approval callbacks and caller mutations cannot change the validated arguments", async (t) => {
+  const f = await fixture(t);
+  const args = { name: "Fixture" };
+  await f.runtime.callTool("create_new_file", args, async (request) => {
+    args.name = "changed by caller";
+    request.arguments.name = "changed by approval callback";
+    return true;
+  });
+  assert.deepEqual(f.calls[0]?.arguments, { name: "Fixture" });
+});
+
+test("shutdown cancels an unanswered approval and prevents late approval from executing", async (t) => {
+  const f = await fixture(t);
+  let release: ((approved: boolean) => void) | undefined;
+  let waiting: (() => void) | undefined;
+  const ready = new Promise<void>((resolve) => { waiting = resolve; });
+  const call = assert.rejects(f.runtime.callTool("create_new_file", { name: "Fixture" }, () => {
+    waiting?.();
+    return new Promise<boolean>((resolve) => { release = resolve; });
+  }), /closed/);
+  await ready;
+  await f.runtime.close();
+  release?.(true);
+  await call;
+  assert.deepEqual(f.calls, []);
+});
+
+test("unanswered approvals time out without invoking an upstream tool", async (t) => {
+  const f = await fixture(t);
+  const runtime = new FigmaRuntime({
+    copilotHome: f.home, clientFactory: () => f.client, approvalTimeoutMs: 20,
+  });
+  t.after(() => runtime.close());
+  await assert.rejects(runtime.callTool("create_new_file", { name: "Fixture" }, () => new Promise(() => {})), /approval timed out/);
+  assert.deepEqual(f.calls, []);
+  assert.equal(f.forceStops, 1);
 });
 
 test("fails closed if a non-Figma server unexpectedly remains enabled", async (t) => {
@@ -209,18 +313,59 @@ test("shutdown failures remain explicit while runtime stop and directory cleanup
   assert.equal(f.stops, 1);
 });
 
-test("permission handler respects server, allowlist, read-only annotations, and managed approvals", async () => {
-  const permission = {
-    kind: "mcp" as const, serverName: "figma", toolName: "get_metadata", toolTitle: "Metadata", readOnly: true,
+test("permissions are bound to the exact active invocation and cannot authorize foreign or host operations", async (t) => {
+  const f = await fixture(t);
+  const execute = f.session.rpc.tools.execute;
+  f.session.rpc.tools.execute = async (call) => {
+    const handler = f.config?.onPermissionRequest;
+    assert(handler);
+    const permission = {
+      kind: "mcp" as const, serverName: "figma", toolName: "get_metadata", toolTitle: "Metadata",
+      readOnly: true, args: call.arguments, ...(call.toolCallId ? { toolCallId: call.toolCallId } : {}),
+    };
+    for (const changes of [
+      { serverName: "other" }, { toolName: "create_new_file" },
+      { args: { nodeId: "different" } }, { toolCallId: "stale" },
+    ]) {
+      assert.equal((await handler({ ...permission, ...changes }, { sessionId: "test" })).kind, "reject");
+    }
+    const { toolCallId, ...uncorrelated } = permission;
+    assert(toolCallId);
+    assert.equal((await handler(uncorrelated, { sessionId: "test" })).kind, "reject");
+    assert.equal((await handler({
+      kind: "read", path: "fixture", intention: "Read local data", ...(call.toolCallId ? { toolCallId: call.toolCallId } : {}),
+    }, { sessionId: "test" })).kind, "reject");
+    return execute(call);
   };
-  assert.deepEqual(await approveReadOnlyFigma(permission, { sessionId: "test" }), { kind: "approve-once" });
-  for (const changes of [
-    { serverName: "other" },
-    { toolName: "create_new_file" },
-    { readOnly: false },
-    { managedApprovalRequired: true },
-  ]) {
-    assert.equal((await approveReadOnlyFigma({ ...permission, ...changes }, { sessionId: "test" })).kind, "reject");
+  await f.runtime.callTool("get_metadata", { nodeId: "1:2" });
+  const handler = f.config?.onPermissionRequest;
+  assert(handler);
+  const last = f.calls[0];
+  assert(last?.toolCallId);
+  assert.equal((await handler({
+    kind: "mcp", serverName: "figma", toolName: "get_metadata", toolTitle: "Metadata",
+    readOnly: true, toolCallId: last.toolCallId,
+  }, { sessionId: "test" })).kind, "reject");
+});
+
+test("managed or non-read-only permission requests for audited reads still require human confirmation", async (t) => {
+  const f = await fixture(t);
+  let managed = false;
+  f.session.rpc.tools.execute = async (call) => {
+    const handler = f.config?.onPermissionRequest;
+    assert(handler);
+    const decision = await handler({
+      kind: "mcp", serverName: "figma", toolName: "whoami", toolTitle: "Identity",
+      readOnly: managed, managedApprovalRequired: managed,
+      ...(call.toolCallId ? { toolCallId: call.toolCallId } : {}),
+    }, { sessionId: "test" });
+    return { resultType: decision.kind === "approve-once" ? "success" : "denied", textResultForLlm: "Fixture" };
+  };
+  for (managed of [false, true]) {
+    let approvals = 0;
+    assert.equal((await f.runtime.callTool("whoami", {}, async () => { approvals++; return true; })).isError, false);
+    assert.equal(approvals, 1);
+    await assert.rejects(f.runtime.callTool("whoami", {}, async () => false), /rejected/);
   }
 });
 

@@ -44,8 +44,9 @@ Avante's required `mega.cmdparse` and `mega.logging` dependencies are installed 
 
 Avante uses your Copilot subscription through `github/copilot.vim`. Run `:Copilot setup` to sign in if needed.
 The default is `claude-sonnet-5.5` with high reasoning effort. The Copilot request override preserves Claude's effort setting, which Avante's OpenAI parameter filter otherwise removes.
+High reasoning effort, long chat/file context, and MCPHub's full server/tool descriptions can increase response latency. The Figma bridge's runtime hop affects Figma calls; its tool descriptions also add to ordinary Avante prompt context.
 
-[Optional remote Figma bridge](tools/figma-copilot-bridge/README.md): read-only Figma tools through the Copilot SDK, isolated in one removable directory.
+[Optional remote Figma bridge](tools/figma-copilot-bridge/README.md): all Figma tools through the Copilot SDK, with per-call confirmation for non-audited operations, isolated in one removable directory.
 
 The leader key is Space:
 
@@ -64,11 +65,12 @@ Use `@file` to add another file to the chat. Avante reads the project's `AGENTS.
 Opening Avante from a terminal or file tree uses an editable file pane as its context, not the terminal URI or tree buffer.
 Run the context regression tests with `nvim --headless -u NONE -l tests/avante.lua` after installing the plugins.
 
-Reads, searches, diagnostics, chat bookkeeping, and all MCP calls run without approval prompts.
+Reads, searches, diagnostics, and chat bookkeeping run without approval prompts.
 Native file modifications and shell commands require approval. With inline approvals, use `Space af` from
 the chat to focus the file pane, then `co` to keep yours, `ct` to accept Avante's change, and `]x` / `[x` to move between changes.
 Finish the review with Allow/Reject in the sidebar. Avoid Allow Always: it bypasses later prompts in that chat.
 MCP calls are also auto-approved by MCPHub, including tools that change remote data or files; those changes do not necessarily use Avante's native review UI.
+The optional Figma bridge independently requires per-call approval for every tool outside its audited read list, regardless of MCPHub auto-approval.
 
 Telescope opens selected files in an editable file pane, even when launched from Avante or a terminal.
 If no file pane exists, Telescope creates an empty one first.
