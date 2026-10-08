@@ -52,7 +52,7 @@ return {
     end,
     providers = {
       copilot = {
-        model = 'claude-sonnet-5.5',
+        model = 'claude-opus-5.5',
         timeout = 120000,
         extra_request_body = {
           reasoning_effort = 'high',

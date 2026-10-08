@@ -27,6 +27,8 @@ local ok, err = xpcall(function()
       if level == vim.log.levels.ERROR then errors[#errors + 1] = tostring(message) end
     end
     local spec = dofile(repo .. '/lua/marten/plugins/avante.lua')
+    assert(spec.opts.providers.copilot.model == 'claude-opus-5.5', 'Opus 5.5 must be the default model')
+    assert(spec.opts.providers.copilot.extra_request_body.reasoning_effort == 'high', 'High reasoning must remain enabled')
     local opts = vim.deepcopy(spec.opts)
     opts.history = { storage_path = artifacts .. '/history' }
     opts.prompt_logger = { enabled = false }
@@ -35,10 +37,25 @@ local ok, err = xpcall(function()
     opts.custom_tools = function() return {} end
     spec.config(spec, opts)
     local llm = require('avante.llm')
+    local provider = require('avante.providers').copilot
+    local copilot = require('avante.providers.copilot')
     local requests = 0
     llm.stream = function(stream_opts)
       requests = requests + 1
-      llm.generate_prompts(stream_opts)
+      local prompt = llm.generate_prompts(stream_opts)
+      local state = copilot.state
+      copilot.state = {
+        github_token = {
+          token = 'fixture',
+          expires_at = os.time() + 3600,
+          endpoints = { api = 'https://api.githubcopilot.com' },
+        },
+      }
+      local request = provider:parse_curl_args(prompt)
+      copilot.state = state
+      assert(request.body.model == 'claude-opus-5.5', 'The request must use Opus 5.5')
+      assert(request.body.reasoning_effort == 'high', 'High effort must survive the native request builder')
+      assert(provider.extra_request_body.reasoning_effort == 'high', 'Building a request must preserve the configured effort')
     end
     for _, case in ipairs({ 'file', 'terminal', 'terminal-only', 'tree' }) do
       vim.cmd.tabnew()
@@ -90,4 +107,4 @@ end, debug.traceback)
 vim.fn.jobstop(child)
 vim.fn.delete(artifacts, 'rf')
 assert(ok, err)
-print 'Avante terminal-context regression tests passed'
+print 'Avante defaults and terminal-context regression tests passed'
