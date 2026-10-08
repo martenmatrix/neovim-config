@@ -44,6 +44,7 @@ Avante's required `mega.cmdparse` and `mega.logging` dependencies are installed 
 
 Avante uses your Copilot subscription through `github/copilot.vim`. Run `:Copilot setup` to sign in if needed.
 The default is `claude-opus-5.5` with high reasoning effort. The Copilot request override preserves Claude's effort setting, which Avante's OpenAI parameter filter otherwise removes.
+Replies default to English unless you explicitly request another language. Restart Neovim and start a new chat after changing these defaults.
 High reasoning effort, long chat/file context, and MCPHub's full server/tool descriptions can increase response latency. The Figma bridge's runtime hop affects Figma calls; its tool descriptions also add to ordinary Avante prompt context.
 
 [Optional remote Figma bridge](tools/figma-copilot-bridge/README.md): all Figma tools through the Copilot SDK, with per-call confirmation for non-audited operations, isolated in one removable directory.

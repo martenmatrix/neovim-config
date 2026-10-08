@@ -27,13 +27,22 @@ local ok, err = xpcall(function()
       if level == vim.log.levels.ERROR then errors[#errors + 1] = tostring(message) end
     end
     local spec = dofile(repo .. '/lua/marten/plugins/avante.lua')
+    local language_prompt = 'Respond in English unless the user explicitly requests another language.'
+    local original_mcphub = package.loaded.mcphub
+    package.loaded.mcphub = { get_hub_instance = function() return nil end }
+    assert(spec.opts.system_prompt() == language_prompt, 'English instructions must be present without MCPHub')
+    package.loaded.mcphub.get_hub_instance = function()
+      return { get_active_servers_prompt = function() return 'Fixture MCP tools' end }
+    end
+    assert(spec.opts.system_prompt() == 'Fixture MCP tools\n\n' .. language_prompt, 'Language instructions must preserve MCP metadata')
+    package.loaded.mcphub = original_mcphub
     assert(spec.opts.providers.copilot.model == 'claude-opus-5.5', 'Opus 5.5 must be the default model')
     assert(spec.opts.providers.copilot.extra_request_body.reasoning_effort == 'high', 'High reasoning must remain enabled')
     local opts = vim.deepcopy(spec.opts)
     opts.history = { storage_path = artifacts .. '/history' }
     opts.prompt_logger = { enabled = false }
     opts.behaviour.use_cwd_as_project_root = true
-    opts.system_prompt = function() return '' end
+    opts.system_prompt = function() return language_prompt end
     opts.custom_tools = function() return {} end
     spec.config(spec, opts)
     local llm = require('avante.llm')
@@ -43,6 +52,7 @@ local ok, err = xpcall(function()
     llm.stream = function(stream_opts)
       requests = requests + 1
       local prompt = llm.generate_prompts(stream_opts)
+      assert(prompt.system_prompt:find(language_prompt, 1, true), 'English instructions must reach the model prompt')
       local state = copilot.state
       copilot.state = {
         github_token = {
@@ -107,4 +117,4 @@ end, debug.traceback)
 vim.fn.jobstop(child)
 vim.fn.delete(artifacts, 'rf')
 assert(ok, err)
-print 'Avante defaults and terminal-context regression tests passed'
+print 'Avante defaults, language, and terminal-context regression tests passed'

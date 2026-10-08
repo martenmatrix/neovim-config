@@ -43,7 +43,9 @@ return {
     },
     system_prompt = function()
       local hub = require('mcphub').get_hub_instance()
-      return hub and hub:get_active_servers_prompt() or ''
+      local tools_prompt = hub and hub:get_active_servers_prompt() or ''
+      local language_prompt = 'Respond in English unless the user explicitly requests another language.'
+      return tools_prompt ~= '' and (tools_prompt .. '\n\n' .. language_prompt) or language_prompt
     end,
     custom_tools = function()
       return {
