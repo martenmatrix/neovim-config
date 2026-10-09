@@ -78,6 +78,20 @@ return {
       end
       return initialize(self)
     end
+    local handle_submit = Sidebar.handle_submit
+    Sidebar.handle_submit = function(self, request)
+      local result = handle_submit(self, request)
+      if require('avante.utils').is_valid_container(self.containers.result) then
+        -- Avante replaces j/k with hard-coded vertical motions on every request.
+        for lhs, mapping in pairs(require 'marten.core.navigation') do
+          vim.keymap.set('n', lhs, function()
+            self.scroll = false
+            return type(mapping.rhs) == 'function' and mapping.rhs() or mapping.rhs
+          end, { buffer = self.containers.result.bufnr, expr = true, desc = mapping.desc })
+        end
+      end
+      return result
+    end
     require('avante').setup(opts)
   end,
   ---@module 'avante'
@@ -86,6 +100,7 @@ return {
     instructions_file = 'avante.md',
     provider = 'copilot',
     behaviour = {
+      confirmation_ui_style = 'popup',
       auto_approve_tool_permissions = {
         'view',
         'ls',

@@ -19,6 +19,10 @@ local ok, err = xpcall(function()
     vim.o.splitright = true
     vim.o.splitbelow = true
     vim.g.avante_login = true
+    require('marten.core.keymaps')
+    local which_key = dofile(repo .. '/lua/marten/plugins/which-key.lua')
+    which_key.init()
+    require('which-key').setup(which_key.opts)
     vim.cmd.cd(artifacts)
     local fixture = artifacts .. '/fixture.lua'
     vim.fn.writefile({ 'return 1' }, fixture)
@@ -82,12 +86,27 @@ local ok, err = xpcall(function()
     opts.system_prompt = function() return language_prompt end
     opts.custom_tools = function() return {} end
     spec.config(spec, opts)
+    local blink = require('blink.cmp.config')
+    blink.merge_with(dofile(repo .. '/lua/marten/plugins/lsp/blink-cmp.lua').opts)
+    assert(blink.enabled(), 'Blink completion must remain enabled in ordinary buffers')
+    vim.bo.filetype = 'AvantePromptInput'
+    assert(not blink.enabled(), 'Blink must not compete with Avante prompt completion')
+    local cmp = require('cmp')
+    local prompt_sources = vim.tbl_map(function(source) return source.name end, cmp.get_config().sources)
+    assert(vim.tbl_contains(prompt_sources, 'avante_prompt_mentions'), 'Avante prompt mentions must remain available')
+    vim.bo.filetype = ''
+    vim.cmd.edit(fixture)
+    require('avante.api').ask({ ask = false, new_chat = true })
+    local approval_sidebar = require('avante').get()
     local helpers = require('avante.llm_tools.helpers')
     local confirm_inline = helpers.confirm_inline
+    helpers.confirm_inline = function() error('Approvals must use the native popup, not inline buttons') end
+    local Confirm = require('avante.ui.confirm')
+    local open = Confirm.open
     local prompts = 0
-    helpers.confirm_inline = function(callback)
+    Confirm.open = function(self)
       prompts = prompts + 1
-      callback('reject_once')
+      return open(self)
     end
     local command_result, command_error
     require('avante.llm_tools.bash').func({ path = artifacts, command = 'printf approval-fixture' }, {
@@ -113,14 +132,31 @@ local ok, err = xpcall(function()
       local count = prompts
       helpers.confirm('Fixture modification', function(result) approved = result end, nil, {}, tool)
       assert(prompts == count + 1, tool .. ' must still require approval')
+      assert(helpers.confirm_popup and helpers.confirm_popup._popup, tool .. ' must display a native approval popup')
+      assert(approval_sidebar.permission_handler == nil, 'Popup approvals must not install inline handlers')
+      helpers.confirm_popup:cancel()
       assert(vim.wait(1000, function() return approved ~= nil end), tool .. ' permission did not resolve')
       assert(approved == false, tool .. ' must honor rejection')
     end
+    for _, case in ipairs({ { key = 'y', approved = true }, { key = 'n', approved = false } }) do
+      local approved
+      helpers.confirm('Fixture modification', function(result) approved = result end,
+        { skip_reject_prompt = true }, {}, 'str_replace')
+      assert(vim.bo.filetype == 'AvanteConfirm', 'The approval popup must receive keyboard focus')
+      vim.api.nvim_feedkeys(case.key, 'xt', false)
+      assert(vim.wait(1000, function() return approved ~= nil end), 'Popup keyboard action must resolve approval')
+      assert(approved == case.approved, 'Popup keyboard action must preserve the selected decision')
+      assert(helpers.confirm_popup == nil, 'Resolved approval must close the popup')
+    end
+    Confirm.open = open
     helpers.confirm_inline = confirm_inline
+    approval_sidebar:close({ goto_code_win = false })
     local llm = require('avante.llm')
     local provider = require('avante.providers').copilot
     local copilot = require('avante.providers.copilot')
     local requests = 0
+    local stops = 0
+    llm.cancel_inflight_request = function() stops = stops + 1 end
     llm.stream = function(stream_opts)
       requests = requests + 1
       local prompt = llm.generate_prompts(stream_opts)
@@ -196,9 +232,30 @@ local ok, err = xpcall(function()
       sidebar.file_selector:get_selected_files_contents()
       vim.api.nvim_set_current_win(sidebar.containers.input.winid)
       vim.api.nvim_exec_autocmds('ModeChanged', { pattern = 'i:n' })
+      assert(not blink.enabled(), 'Blink must not compete with Avante chat completion')
+      local input_sources = vim.tbl_map(function(source) return source.name end, cmp.get_config().sources)
+      assert(vim.tbl_contains(input_sources, 'avante_commands'), 'Avante slash commands must remain available')
+      assert(vim.tbl_contains(input_sources, 'avante_mentions'), 'Avante mentions must remain available')
       local count = requests
       sidebar:handle_submit('Explain this fixture')
       assert(vim.wait(2000, function() return requests > count end), 'Message submission did not reach the request builder')
+      vim.api.nvim_set_current_win(sidebar.containers.result.winid)
+      vim.api.nvim_win_set_cursor(0, { 2, 0 })
+      sidebar.scroll = true
+      vim.api.nvim_feedkeys('k', 'xt', false)
+      assert(vim.api.nvim_win_get_cursor(0)[1] == 3, 'k must move down in the chat while Avante is running')
+      assert(not sidebar.scroll, 'Manual navigation must stop automatic scrolling')
+      vim.api.nvim_feedkeys('l', 'xt', false)
+      assert(vim.api.nvim_win_get_cursor(0)[1] == 2, 'l must move up in the chat while Avante is running')
+      vim.api.nvim_feedkeys('2k', 'xt', false)
+      assert(vim.api.nvim_win_get_cursor(0)[1] == 4, 'Chat navigation must preserve counts')
+      vim.api.nvim_feedkeys(' af', 'xt', false)
+      assert(vim.wait(1000, function() return vim.api.nvim_get_current_win() == sidebar.code.winid end),
+        'Space af must switch to the file pane while Avante is running')
+      local stop_count = stops
+      vim.api.nvim_feedkeys(' aS', 'xt', false)
+      assert(vim.wait(1000, function() return stops > stop_count end),
+        'Space aS must reach the native stop action while Avante is running')
       assert(#errors == 0, table.concat(errors, '\n'))
       if job then
         assert(vim.api.nvim_buf_is_valid(terminal_buf), 'Terminal buffer must be preserved')

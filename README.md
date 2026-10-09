@@ -67,16 +67,19 @@ The leader key is Space:
 | `Space aS` | Stop the current request |
 
 Type your question in the input window, then press `Esc` followed by `Enter` to send it.
+Avante input uses its own completion for `/` commands and mentions; Blink is disabled there to avoid duplicate menus.
 Use `@file` to add another file to the chat. Avante reads the project's `AGENTS.md` automatically.
 Opening Avante from a terminal or file tree uses an editable file pane as its context, not the terminal URI or tree buffer.
+Chat navigation preserves the same `j` / `k` / `l` / `;` home-row layout as file buffers, including while a request is running.
 Run the context regression tests with `nvim --headless -u NONE -l tests/avante.lua` after installing the plugins.
 
 Reads, searches, diagnostics, chat bookkeeping, shell commands, and Python execution run without approval prompts.
 Native file modifications (including creation, deletion, and moves) and the Git commit tool still require approval.
 Shell/Python commands can modify files without Avante's native edit review; auto-approval is tool-based, not a read-only command filter.
-With inline approvals, use `Space af` from
-the chat to focus the file pane, then `co` to keep yours, `ct` to accept Avante's change, and `]x` / `[x` to move between changes.
-Finish the review with Allow/Reject in the sidebar. Avoid Allow Always: it bypasses later prompts in that chat.
+Edit approvals use Avante's built-in confirmation popup instead of inline chat buttons.
+Press `c` in the popup to inspect the file, then `co` to keep yours, `ct` to accept a hunk, and `]x` / `[x` to move between changes.
+Use `Ctrl-w f` to return to the popup. Press `y` to finish accepting the current edit, or `n` to reject it and submit the optional reason.
+Avoid `a` (All yes): it bypasses later prompts in that chat.
 MCP calls are also auto-approved by MCPHub, including tools that change remote data or files; those changes do not necessarily use Avante's native review UI.
 The optional Figma bridge independently requires per-call approval for every tool outside its audited read list, regardless of MCPHub auto-approval.
 
