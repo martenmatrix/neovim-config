@@ -73,7 +73,10 @@ The bridge starts a separate runtime, not a connection to an existing interactiv
 Text, image blocks, structured content, and result metadata are preserved when supplied by the runtime.
 MCPHub's current Avante extension ignores image blocks, so the bridge temporarily hooks the calling sidebar
 to insert images after the complete tool-result batch. The hook restores itself after insertion or shutdown.
+Each image gets its own single-block history message, as required by Avante's history helpers.
 Images then become normal Avante chat context and follow Avante's usual history storage.
+If an older bridge already raised `more than one entry in message content`, restart Neovim and start a new
+chat with `Space an`; the failed insertion may have left a malformed message in that chat's saved history.
 Full tool coverage does not mean a transparent proxy for MCP resources, sampling, or MCP Apps UI.
 Tool-provided browser-capture, upload/download, and polling instructions are returned to Avante; the bridge does
 not autonomously run browser scripts or transfer local files. Avante must carry out those workflow steps with

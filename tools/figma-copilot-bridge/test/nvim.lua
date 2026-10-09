@@ -196,12 +196,11 @@ local ok, err = xpcall(function()
   assert(#long.result.content[1].text == 131072, 'Fragmented stdout must preserve the complete result')
 
   local history = {}
-  local sidebar = {
-    chat_history = history,
-    add_history_messages = function(_, messages)
-      vim.list_extend(history, messages)
-    end,
-  }
+  local sidebar = setmetatable({
+    chat_history = { messages = history, title = 'Fixture' },
+    save_history = function() end,
+    throttled_update_content = function() end,
+  }, { __index = require 'avante.sidebar' })
   local original = sidebar.add_history_messages
   local image = call('get_screenshot', {}, { type = 'avante', avante = sidebar })
   assert(image.result.content[1].type == 'image')
@@ -214,7 +213,8 @@ local ok, err = xpcall(function()
   sidebar:add_history_messages { tool_result }
   assert(#history == 2)
   assert(history[1] == tool_result, 'Tool results must precede supplemental images')
-  assert(history[2].message.content[2].source.data == 'aW1hZ2U=')
+  assert(#history[2].message.content == 1, 'Avante history requires one content block per message')
+  assert(history[2].message.content[1].source.data == 'aW1hZ2U=')
   assert(sidebar.add_history_messages == original, 'The temporary image hook must restore itself')
 
   local spec = dofile(vim.fn.getcwd() .. '/lua/marten/plugins/avante.lua')
@@ -236,9 +236,31 @@ local ok, err = xpcall(function()
   local last = messages[#messages]
   assert(last.role == 'user')
   assert(
-    last.content[2].image_url.url == 'data:image/png;base64,aW1hZ2U=',
+    last.content[1].image_url.url == 'data:image/png;base64,aW1hZ2U=',
     'Screenshot must reach the Copilot model request'
   )
+
+  local count = #history
+  call('get_screenshot', {}, { type = 'avante', avante = sidebar })
+  call('get_screenshot', {}, { type = 'avante', avante = sidebar })
+  assert(#history == count, 'Multiple images must wait for the complete tool-result batch')
+  local batch = {}
+  for _, id in ipairs { 'screenshot-2', 'screenshot-3' } do
+    batch[#batch + 1] = require('avante.history.message'):new('user', {
+      type = 'tool_result',
+      tool_use_id = id,
+      content = 'Screenshot fetched',
+    })
+  end
+  sidebar:add_history_messages(batch)
+  assert(#history == count + 4, 'Every screenshot in a batch must have its own history message')
+  assert(history[count + 1] == batch[1] and history[count + 2] == batch[2], 'All tool results must precede images')
+  for index = count + 3, #history do
+    assert(#history[index].message.content == 1, 'Multiple images must not share a history message')
+    assert(history[index].message.content[1].type == 'image')
+  end
+  require('avante.history').get_pending_tools(history)
+  assert(sidebar.add_history_messages == original, 'Batched image insertion must restore the hook')
 
   call('get_screenshot', {}, { type = 'avante', avante = sidebar })
   assert(sidebar.add_history_messages ~= original)

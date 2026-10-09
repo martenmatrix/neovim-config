@@ -261,12 +261,12 @@ local function queue_images(sidebar, result)
             vim.notify('Figma bridge: chat changed before images could be attached.', vim.log.levels.ERROR)
             return
           end
-          local image_message = require('avante.history.message'):new('user', {
-            type = 'text',
-            text = 'Figma images returned by the preceding tool calls.',
-          }, { visible = false })
-          vim.list_extend(image_message.message.content, state.blocks)
-          state.original(self, { image_message }, opts)
+          local image_messages = {}
+          for _, block in ipairs(state.blocks) do
+            image_messages[#image_messages + 1] =
+              require('avante.history.message'):new('user', block, { visible = false })
+          end
+          state.original(self, image_messages, opts)
           return
         end
       end
