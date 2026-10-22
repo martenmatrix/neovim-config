@@ -33,7 +33,7 @@ if (process.argv.includes("--invalid-json")) {
       return { content: [{ type: "text", text: JSON.stringify(args) }] };
     },
     close: async () => {},
-  });
+  }, { autoApprove: process.argv.includes("--auto-approve") });
   await server.connect(new StdioServerTransport());
   process.stdin.once("end", () => { void server.close(); });
 }

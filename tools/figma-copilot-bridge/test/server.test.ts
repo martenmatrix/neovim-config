@@ -91,3 +91,24 @@ test("clients without form elicitation cannot grant write permission through too
   assert(JSON.stringify(result.content).includes("does not support form elicitation"));
   assert.equal(calls, 0);
 });
+
+test("explicit server-side auto approval allows protected operations without form elicitation", async (t) => {
+  const calls: unknown[] = [];
+  const server = createServer({
+    listTools: async () => [{ name: "future_tool", inputSchema: { type: "object", properties: {} } }],
+    callTool: async (name, args, confirm) => {
+      await confirmFigmaCall({ name, arguments: args, reason: "Protected operation." }, confirm);
+      calls.push({ name, args });
+      return { content: [{ type: "text", text: "Executed once" }] };
+    },
+    close: async () => {},
+  }, { autoApprove: true });
+  const client = new Client({ name: "acp", version: "1" });
+  const [serverTransport, clientTransport] = InMemoryTransport.createLinkedPair();
+  await server.connect(serverTransport);
+  await client.connect(clientTransport);
+  t.after(async () => { await client.close(); await server.close(); });
+  const args = { id: "fixture" };
+  assert.notEqual((await client.callTool({ name: "future_tool", arguments: args })).isError, true);
+  assert.deepEqual(calls, [{ name: "future_tool", args }]);
+});

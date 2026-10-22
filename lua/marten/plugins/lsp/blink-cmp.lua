@@ -13,9 +13,6 @@ return {
   ---@module 'blink.cmp'
   ---@type blink.cmp.Config
   opts = {
-    enabled = function()
-      return not vim.tbl_contains({ 'AvanteInput', 'AvantePromptInput' }, vim.bo.filetype)
-    end,
     -- 'default' (recommended) for mappings similar to built-in completions (C-y to accept)
     -- 'super-tab' for mappings similar to vscode (tab to accept)
     -- 'enter' for enter to accept
@@ -41,7 +38,17 @@ return {
     },
 
     -- (Default) Only show the documentation popup when manually triggered
-    completion = { documentation = { auto_show = true, auto_show_delay_ms = 0 } },
+    completion = {
+      documentation = { auto_show = true, auto_show_delay_ms = 0 },
+      list = {
+        selection = {
+          auto_insert = function(ctx)
+            -- Inserting #{context} while navigating closes CodeCompanion's menu.
+            return not vim.tbl_contains({ 'codecompanion', 'codecompanion_input' }, vim.bo[ctx.bufnr].filetype)
+          end,
+        },
+      },
+    },
 
     -- Default list of enabled providers defined so that you can extend it
     -- elsewhere in your config, without redefining it, due to `opts_extend`

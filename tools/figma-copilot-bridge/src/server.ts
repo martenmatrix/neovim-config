@@ -5,7 +5,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { APPROVAL_TIMEOUT_MS, type FigmaBackend } from "./runtime.js";
 
-export function createServer(backend: FigmaBackend): Server {
+export function createServer(backend: FigmaBackend, options: { autoApprove?: boolean } = {}): Server {
   const server = new Server(
     { name: "figma-copilot-bridge", version: "0.1.0" },
     { capabilities: { tools: {} } },
@@ -16,6 +16,7 @@ export function createServer(backend: FigmaBackend): Server {
   server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     try {
       return await backend.callTool(request.params.name, request.params.arguments ?? {}, async (approval) => {
+        if (options.autoApprove) return true;
         if (!server.getClientCapabilities()?.elicitation) {
           throw new Error(`Figma ${approval.name} requires explicit confirmation, but this MCP client does not support form elicitation.`);
         }

@@ -3,7 +3,7 @@ import { FigmaRuntime } from "./runtime.js";
 import { createServer } from "./server.js";
 
 const backend = new FigmaRuntime();
-const server = createServer(backend);
+const server = createServer(backend, { autoApprove: process.argv.includes("--auto-approve") });
 let stopping: Promise<void> | undefined;
 
 function shutdown(): Promise<void> {

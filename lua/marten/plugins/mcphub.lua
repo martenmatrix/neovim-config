@@ -1,15 +1,17 @@
 return {
-  "ravitemer/mcphub.nvim",
+  'ravitemer/mcphub.nvim',
+  -- Retained for the optional bridge until CLI-owned Figma authentication is verified.
+  cond = false,
   dependencies = {
-    "nvim-lua/plenary.nvim",
+    'nvim-lua/plenary.nvim',
   },
-  build = "bundled_build.lua",
+  build = 'bundled_build.lua',
   opts = {
-    config = vim.fn.expand("~/.copilot/mcp-config.json"),
+    config = vim.fn.expand '~/.copilot/mcp-config.json',
     use_bundled_binary = true,
     auto_approve = true,
     on_ready = function(hub)
-      local directory = vim.fn.stdpath('config') .. '/tools/figma-copilot-bridge'
+      local directory = vim.fn.stdpath 'config' .. '/tools/figma-copilot-bridge'
       local path = directory .. '/nvim.lua'
       local installed = vim.fn.filereadable(directory .. '/dist/src/index.js') == 1
       if

@@ -29,6 +29,11 @@ Generalize it. Describe the *pattern* with a neutral placeholder instead of the 
 
 The Neovim setup should be useful to anyone, not tied to one employer's internal repo.
 
+## README changes
+
+- Do not edit or expand `README.md` without the user's explicit consent for those README changes.
+- Code or configuration work does not implicitly authorize README documentation. When authorized, keep changes concise and limited to the requested scope.
+
 ## Conventions
 
 - **Install everything through Mason.** LSP servers, formatters, linters, and DAP adapters should be managed by Mason (`mason.nvim` / `mason-lspconfig`) so setup stays reproducible. Prefer adding a tool to Mason's `ensure_installed` over documenting a manual `brew`/`npm` install. Only reach outside Mason when a tool genuinely isn't available there (e.g. `sourcekit-lsp`, which ships with the Xcode toolchain).

@@ -143,14 +143,14 @@ local function run_tests()
   assert_equal(20, exec('return vim.api.nvim_win_get_width(...)', left), 'Sidebar width must stay unchanged')
 
   local right = command 'botright 20vnew'
-  protect(right, 'Avante')
+  protect(right, 'codecompanion')
   assert_file_column(terminal, editor)
   assert_equal(right, current_win(), 'Opening a right sidebar must not lose focus')
   assert_equal(20, exec('return vim.api.nvim_win_get_width(...)', right), 'Right sidebar width must stay unchanged')
   local sidebar_terminal = open_terminal()
   assert_file_column(sidebar_terminal, editor)
   assert_equal(
-    'Avante',
+    'codecompanion',
     exec('return vim.bo[vim.api.nvim_win_get_buf(...)].filetype', right),
     'Sidebar must not be replaced'
   )
@@ -237,11 +237,11 @@ local function run_tests()
   for _, case in ipairs { 'tree', 'sidebar', 'tree-sidebar' } do
     command 'tabnew'
     local original = current_win()
-    protect(original, case == 'sidebar' and 'Avante' or 'NvimTree')
+    protect(original, case == 'sidebar' and 'codecompanion' or 'NvimTree')
     local sidebar = original
     if case == 'tree-sidebar' then
       sidebar = command 'botright 48vnew'
-      protect(sidebar, 'Avante')
+      protect(sidebar, 'codecompanion')
     end
     local empty_terminal = open_terminal()
     local empty_editor = exec [[return require('marten.core.windows').ensure_file_window()]]
@@ -276,7 +276,7 @@ local function run_tests()
       assert(positions.original < positions.editor, 'Tree must stay left of the file pane')
     end
     if case ~= 'tree' then
-      assert(positions.sidebar > positions.editor, 'Avante must stay right of the file pane')
+      assert(positions.sidebar > positions.editor, 'Chat must stay right of the file pane')
     end
     command 'tabclose!'
   end

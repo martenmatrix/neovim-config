@@ -33,7 +33,16 @@ return {
   {
     'alvarosevilla95/luatab.nvim',
     config = function()
-      require('luatab').setup {}
+      local luatab = require 'luatab'
+      local title = luatab.helpers.title
+      luatab.setup {
+        title = function(bufnr)
+          if vim.bo[bufnr].filetype == 'codecompanion' then
+            return 'CodeCompanion'
+          end
+          return title(bufnr)
+        end,
+      }
     end,
   },
 }

@@ -1,3 +1,4 @@
+-- TODO: Replace with native multicursors after upgrading to a stable Neovim release that supports them.
 return {
     "jake-stewart/multicursor.nvim",
     branch = "1.0",
