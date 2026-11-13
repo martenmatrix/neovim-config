@@ -37,6 +37,10 @@ return {
       local title = luatab.helpers.title
       luatab.setup {
         title = function(bufnr)
+          local task = vim.b[bufnr].ai_worktree
+          if task then
+            return 'AI: ' .. vim.fs.basename(task)
+          end
           if vim.bo[bufnr].filetype == 'codecompanion' then
             return 'CodeCompanion'
           end

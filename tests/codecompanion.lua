@@ -36,15 +36,20 @@ local function run()
     vim.o.swapfile = false
     vim.o.shell = '/bin/sh'
     vim.cmd.cd(directory)
+    _G.fixture_root = directory
     vim.fn.writefile({ "return 'first'" }, 'first.lua')
     vim.fn.writefile({ "return 'second'" }, 'second.lua')
     local function git(...)
-      local result = vim.system({ 'git', ... }, { text = true }):wait()
+      local result = vim.system({ 'git', ... }, { cwd = directory, text = true }):wait()
       assert(result.code == 0, result.stderr)
       return vim.trim(result.stdout)
     end
     _G.fixture_git = git
     git('init', '-q')
+    _G.definition_root = directory .. '/.git/definition-project'
+    vim.fn.mkdir(definition_root, 'p')
+    vim.fn.writefile({ "return 'definition target'" }, definition_root .. '/definition.lua')
+    git('-C', definition_root, 'init', '-q')
     git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.com', 'add', '.')
     git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.com', 'commit', '-qm', 'chore(): fixture')
     _G.fixture_head = git('rev-parse', 'HEAD')
@@ -54,15 +59,21 @@ local function run()
     _G.fixture_index = git('write-tree')
     vim.cmd.edit('first.lua')
     _G.fixture_editor = vim.api.nvim_get_current_win()
+    dofile(repo .. '/lua/marten/plugins/everforest.lua').config()
     local blink = dofile(repo .. '/lua/marten/plugins/lsp/blink-cmp.lua')
     require('blink.cmp').setup(blink.opts)
     local renderer = dofile(repo .. '/lua/marten/plugins/render-markdown.lua')
     require('render-markdown').setup(renderer.opts)
     vim.cmd.runtime('plugin/render-markdown.lua')
-    require('img-clip').setup(dofile(repo .. '/lua/marten/plugins/img-clip.lua').opts)
+    local images = dofile(repo .. '/lua/marten/plugins/img-clip.lua')
+    require('img-clip').setup(images.opts)
+    for _, mapping in ipairs(images.keys) do
+      vim.keymap.set(mapping.mode or 'n', mapping[1], mapping[2])
+    end
     local spec = dofile(repo .. '/lua/marten/plugins/codecompanion.lua')
     spec.opts.adapters.acp.extend.copilot_acp.commands.default = { 'python3', repo .. '/tests/fixtures/codecompanion-acp.py' }
     spec.opts.interactions.code_review.opts = { storage_dir = directory .. '/.git/reviews' }
+    spec.opts.display.action_palette = { provider = 'default' }
     spec.config(spec, spec.opts)
     vim.cmd.runtime('plugin/codecompanion.lua')
     for _, mapping in ipairs(spec.keys) do
@@ -178,8 +189,8 @@ local function run()
     other:submit()
   ]]
   wait_for(
-    [[return other.current_request == nil and table.concat(vim.api.nvim_buf_get_lines(other.bufnr,0,-1,false),'\n'):find('Fixture status approvals received',1,true) ~= nil]],
-    'A new full-auto chat must approve ACP commands outside the Auto safe list without prompting'
+    [[return other.current_request == nil and table.concat(vim.api.nvim_buf_get_lines(other.bufnr,0,-1,false),'\n'):find('Fixture command approvals received',1,true) ~= nil]],
+    'A new YOLO chat must approve ACP commands, pipelines and command chains without prompting'
   )
   exec [[
     other:close()
@@ -187,7 +198,7 @@ local function run()
     vim.api.nvim_set_current_win(fixture_editor)
     controls.write()
     assert(controls.current_chat() == chat, 'Returning to a tab must restore its chat')
-    require('codecompanion.interactions.chat.tools.approvals'):set_mode(chat.bufnr, { mode = 'auto' })
+    require('codecompanion.interactions.chat.tools.approvals'):set_mode(chat.bufnr, { mode = 'yolo' })
     vim.cmd.stopinsert()
     chat:add_buf_message({ role = 'user', content = 'EDIT_FIXTURE' })
     chat:submit()
@@ -207,8 +218,62 @@ local function run()
     _G.review_text = table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), '\n')
     assert(review_text:find('first.lua', 1, true) and review_text:find('second.lua', 1, true), 'Review must list both changed files')
     assert(not review_text:find('existing.txt', 1, true), 'Pre-existing dirty work must be baseline, not agent changes')
+    _G.review_baseline = require('codecompanion.interactions.code_review.baseline').get(fixture_root)
+    _G.review_accepted = require('codecompanion.interactions.code_review.store').accepted(fixture_root)
+    _G.assert_unreviewed = function()
+      local baseline = require 'codecompanion.interactions.code_review.baseline'
+      local store = require 'codecompanion.interactions.code_review.store'
+      assert(baseline.get(fixture_root) == review_baseline, 'Navigation must not advance the review baseline')
+      assert(#baseline.diff(fixture_root) == 2, 'Both edited files must remain pending after navigation')
+      assert(vim.deep_equal(store.accepted(fixture_root), review_accepted), 'Navigation must not accept any hunks')
+      assert(fixture_git('rev-parse', 'HEAD') == fixture_head, 'Navigation must not move branch HEAD')
+      assert(fixture_git('write-tree') == fixture_index, 'Navigation must preserve the real staging index')
+    end
     for _, win in ipairs(vim.api.nvim_tabpage_list_wins(review_tab)) do
       if win ~= review_tree then _G.review_pane = win end
+    end
+    local namespace = vim.api.nvim_create_namespace('codecompanion.code_review.window')
+    local function accessible_review()
+      local function blue(color)
+        return color and color % 256 > math.floor(color / 256) % 256
+          and math.floor(color / 256) % 256 > math.floor(color / 65536)
+      end
+      local function amber(color)
+        return color and math.floor(color / 65536) > math.floor(color / 256) % 256
+          and math.floor(color / 256) % 256 > color % 256
+      end
+      local seen = {}
+      for _, win in ipairs({ review_tree, review_pane }) do
+        for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(
+          vim.api.nvim_win_get_buf(win), namespace, 0, -1, { details = true }
+        )) do
+          local group = mark[4].line_hl_group or mark[4].hl_group
+          if group then
+            seen[group] = vim.api.nvim_get_hl(0, { name = group, link = false })
+          end
+        end
+      end
+      assert(seen.CodeCompanionDiffAdd and blue(seen.CodeCompanionDiffAdd.bg),
+        'Rendered review additions must have blue backgrounds')
+      assert(seen.CodeCompanionDiffDelete and amber(seen.CodeCompanionDiffDelete.bg)
+        and seen.CodeCompanionDiffDelete.underline, 'Rendered deletions must be amber and underlined')
+      assert(seen.CodeCompanionCodeReviewAdded and blue(seen.CodeCompanionCodeReviewAdded.fg)
+        and seen.CodeCompanionCodeReviewRemoved and amber(seen.CodeCompanionCodeReviewRemoved.fg),
+        'Rendered checklist counts must use the same accessible diff colors')
+      local added_word = vim.api.nvim_get_hl(0, { name = 'CodeCompanionDiffText', link = false })
+      local removed_word = vim.api.nvim_get_hl(0, { name = 'CodeCompanionDiffTextDelete', link = false })
+      assert(blue(added_word.bg) and amber(removed_word.bg) and removed_word.underline,
+        'Word changes must distinguish additions and deletions without red/green')
+      assert(blue(vim.api.nvim_get_hl(0, { name = 'GitSignsAdd', link = false }).fg)
+        and amber(vim.api.nvim_get_hl(0, { name = 'GitSignsDelete', link = false }).fg),
+        'Git signs must use the same accessible diff colors')
+    end
+    accessible_review()
+    local background = vim.o.background
+    for _, value in ipairs({ 'light', 'dark', background }) do
+      vim.o.background = value
+      vim.cmd.colorscheme('everforest')
+      accessible_review()
     end
     _G.saved_lsp_clients = vim.lsp.get_clients
     _G.saved_definition = vim.lsp.buf.definition
@@ -226,7 +291,20 @@ local function run()
       assert(vim.api.nvim_win_get_buf(fixture_chat_win) == fixture_chat_buf, 'Navigation must not replace chat')
       assert(vim.deep_equal(vim.api.nvim_win_get_cursor(0), { 1, 9 }), 'Diff rows must map to real source lines and columns')
     end
-    vim.lsp.buf.definition = function() location(); navigation.definition = true end
+    vim.lsp.buf.definition = function()
+      _G.definition_source = {
+        win = vim.api.nvim_get_current_win(),
+        path = vim.fn.expand('%:t'),
+        buftype = vim.bo.buftype,
+        chat_buf = vim.api.nvim_win_get_buf(fixture_chat_win),
+        cursor = vim.api.nvim_win_get_cursor(0),
+      }
+      navigation.definition = vim.lsp.util.show_document({
+        uri = vim.uri_from_fname(definition_root .. '/definition.lua'),
+        range = { start = { line = 0, character = 0 }, ['end'] = { line = 0, character = 0 } },
+      }, 'utf-8', { focus = true })
+      vim.cmd.lcd(definition_root)
+    end
     vim.lsp.buf.implementation = function() location(); navigation.implementation = true end
     vim.api.nvim_set_current_win(review_pane)
     for row, text in ipairs(vim.api.nvim_buf_get_lines(0, 0, -1, false)) do
@@ -240,12 +318,35 @@ local function run()
       'Deleted lines must not navigate to a different source symbol')
     assert(fixture_notices[#fixture_notices]:find('Deleted lines', 1, true), 'Deleted-line navigation must explain the limitation')
     vim.api.nvim_win_set_cursor(review_pane, { review_source_row, 9 })
-    vim.fn.maparg('gd', 'n', false, true).callback()
+  ]]
+  keys '09;gd'
+  wait_for('return navigation.definition', 'Definition shortcut must jump to its target')
+  exec [[
     assert(navigation.definition, 'Definition must resolve from the real source position')
+    assert(definition_source.win == fixture_editor and definition_source.path == 'first.lua'
+      and definition_source.buftype == '' and definition_source.chat_buf == fixture_chat_buf
+      and vim.deep_equal(definition_source.cursor, { 1, 9 }), 'Definition must navigate from the real source position')
+    assert(vim.fn.expand('%:t') == 'definition.lua', 'Definition must actually jump to another file')
+    assert_unreviewed()
   ]]
   wait_for('return vim.fn.mode() == "n"', 'LSP navigation must leave the source in Normal mode')
   exec [[
+    vim.diagnostic.set(vim.api.nvim_create_namespace('review-navigation-fixture'), vim.fn.bufnr('first.lua'), {
+      { lnum = 0, col = 0, severity = vim.diagnostic.severity.ERROR, message = 'Fixture diagnostic' },
+    })
+  ]]
+  keys ' ar'
+  wait_for(
+    [[return vim.api.nvim_get_current_tabpage() == review_tab]],
+    'Space ar must return to the review after a definition jump'
+  )
+  exec [[
+    vim.api.nvim_win_call(fixture_editor, function()
+      vim.cmd.lcd(fixture_root)
+    end)
+    vim.api.nvim_set_current_win(fixture_chat_win)
     controls.review()
+    assert_unreviewed()
     assert(vim.api.nvim_get_current_tabpage() == review_tab, 'Navigation must preserve the existing review')
     vim.api.nvim_set_current_win(review_pane)
     vim.api.nvim_win_set_cursor(review_pane, { review_source_row, 9 })
@@ -262,7 +363,26 @@ local function run()
     vim.lsp.get_clients = saved_lsp_clients
     vim.lsp.buf.definition = saved_definition
     vim.lsp.buf.implementation = saved_implementation
+    assert_unreviewed()
+  ]]
+  keys ' arc'
+  wait_for(
+    [[return vim.api.nvim_get_current_tabpage() == review_tab]],
+    'Space arc must reopen the current pending review'
+  )
+  exec [[
+    assert_unreviewed()
+    assert(table.concat(vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(review_tree), 0, -1, false), '\n')
+      :find('first.lua', 1, true), 'Returning from navigation must keep the changed files visible')
+    require('codecompanion.interactions.code_review.window').close()
     controls.review()
+    assert(vim.bo.filetype == 'codecompanion_code_review', 'Closing and reopening must retain pending review hunks')
+    _G.review_tab = vim.api.nvim_get_current_tabpage()
+    _G.review_tree = vim.api.nvim_get_current_win()
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(review_tab)) do
+      if win ~= review_tree then _G.review_pane = win end
+    end
+    assert_unreviewed()
     vim.api.nvim_set_current_win(review_tree)
     vim.api.nvim_win_set_width(review_tree, 31)
     _G.review_layout = vim.fn.winlayout()
@@ -342,6 +462,36 @@ local function run()
     'Native stop must return chat to editable input'
   )
   exec [[
+    fixture_git('branch', 'fixture-base', fixture_head)
+    fixture_git('config', 'init.defaultBranch', 'fixture-base')
+    vim.api.nvim_set_current_win(fixture_editor)
+  ]]
+  keys '<Esc> arb'
+  wait_for([[return vim.bo.filetype == 'codecompanion_code_review']], 'Space arb must open the native branch review')
+  exec [[
+    _G.branch_review_tab = vim.api.nvim_get_current_tabpage()
+    _G.branch_review_tree = vim.api.nvim_get_current_win()
+    local text = table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), '\n')
+    assert(text:find('first.lua', 1, true) and text:find('second.lua', 1, true)
+      and text:find('existing.txt', 1, true), 'Branch review must include changes outside the latest agent round')
+    assert(require('codecompanion.interactions.code_review.baseline').get(fixture_root) == fixture_head,
+      'Branch review must use the branch fork point')
+    assert(fixture_git('rev-parse', 'HEAD') == fixture_head and fixture_git('write-tree') == fixture_index,
+      'Branch review must not alter branch HEAD or staged work')
+    vim.api.nvim_set_current_win(fixture_editor)
+  ]]
+  keys ' arc'
+  wait_for(
+    [[return vim.api.nvim_get_current_tabpage() == branch_review_tab]],
+    'Space arc must focus the current pending review without resetting it'
+  )
+  exec [[
+    assert(table.concat(vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(branch_review_tree), 0, -1, false), '\n')
+      :find('existing.txt', 1, true), 'Returning to the branch review must not discard pending changes')
+    require('codecompanion.interactions.code_review.window').close()
+    vim.api.nvim_set_current_win(fixture_chat_win)
+  ]]
+  exec [[
     local confirm = require('codecompanion.interactions.chat.acp.request_permission').confirm
     local function approved(kind, input)
       local choice
@@ -357,20 +507,18 @@ local function run()
       return choice
     end
     for _, kind in ipairs({ 'read', 'search', 'edit', 'fetch' }) do
-      assert(approved(kind) == 'allow', kind .. ' should be automatic in Auto mode')
+      assert(approved(kind) == 'allow', kind .. ' should be automatic in YOLO mode')
     end
-    assert(approved('execute', { command = 'git status --short' }) == 'allow', 'Safe commands should be automatic')
-    assert(approved('execute', { command = 'git --no-pager status -sb' }) == 'allow',
-      'Status must remain automatic with a leading --no-pager option')
-    assert(approved('execute', { command = 'git --no-pager status -sb | head' }) == nil,
-      'Status pipelines must still ask')
-    assert(approved('execute', { command = 'cd /tmp && git --no-pager status -sb' }) == nil,
-      'Directory-changing command chains must still ask')
-    assert(approved('execute', { command = 'git status; git commit -am fixture' }) == nil,
-      'Command chains must ask, not auto-approve')
-    assert(approved('execute', { command = 'git push' }) == nil, 'Push must ask')
-    assert(approved('execute', { command = 'git commit -am fixture' }) == nil, 'Commit must ask')
-    assert(approved('other', { tool = 'figma_write_fixture' }) == nil, 'Unknown MCP mutations must ask')
+    for _, command in ipairs({
+      'printf full-auto-fixture',
+      'git --no-pager status -sb | head',
+      'cd /tmp && git --no-pager status -sb',
+      'git status; git commit -am fixture',
+      'git push',
+    }) do
+      assert(approved('execute', { command = command }) == 'allow', 'YOLO must approve without a command allowlist')
+    end
+    assert(approved('other', { tool = 'figma_write_fixture' }) == 'allow', 'YOLO must also approve MCP operations')
     chat:stop()
     assert(fixture_git('rev-parse', 'HEAD') == fixture_head and fixture_git('write-tree') == fixture_index,
       'Review must not commit or change staging')
@@ -465,6 +613,33 @@ local function run()
     'Ordinary Markdown rendering must remain enabled'
   )
   exec [[
+    cc.restore(chat.bufnr)
+    _G.saved_select = vim.ui.select
+    _G.palette_history = vim.api.nvim_buf_get_lines(chat.bufnr, 0, -1, false)
+    _G.actions_opened = false
+    _G.open_chat_selected = false
+    vim.ui.select = function(items, opts, callback)
+      for _, item in ipairs(items) do
+        if opts.prompt == 'Select a chat' and item.bufnr == chat.bufnr then
+          open_chat_selected = true
+          callback(item)
+          return
+        elseif item.name and item.name:find('Open chats', 1, true) then
+          actions_opened = true
+          callback(item)
+          return
+        end
+      end
+      callback(nil)
+    end
+  ]]
+  keys '<Esc> fa'
+  wait_for('return actions_opened and open_chat_selected', 'Actions shortcut must offer open chats even inside chat')
+  exec [[
+    assert(vim.api.nvim_get_current_buf() == chat.bufnr, 'Open chats must restore the existing chat buffer')
+    assert(vim.deep_equal(palette_history, vim.api.nvim_buf_get_lines(chat.bufnr, 0, -1, false)),
+      'Switching through actions must preserve the conversation and draft')
+    vim.ui.select = saved_select
     chat:close()
     vim.bo.modified = false
     _G.saved_select = vim.ui.select
@@ -474,12 +649,32 @@ local function run()
       resume_picker = true
       callback(items[1], 1)
     end
-    controls.resume()
   ]]
+  keys ' ah'
   wait_for('return resume_picker', 'History shortcut must wait for ACP initialization, then show sessions')
   wait_for(
     [[return table.concat(vim.api.nvim_buf_get_lines(controls.current_chat().bufnr,0,-1,false),'\n'):find('Resumed fixture history',1,true) ~= nil]],
     'Native ACP resume must restore history into the new chat'
+  )
+  exec [[
+    controls.current_chat():close()
+    _G.saved_new_chat = controls.new_chat
+    _G.resume_picker = false
+    controls.new_chat = function()
+      local fresh = saved_new_chat()
+      _G.history_already_connected = vim.wait(5000, function()
+        return fresh.acp_connection and fresh.acp_connection.session_id ~= nil
+      end, 10)
+      return fresh
+    end
+    controls.resume()
+    controls.new_chat = saved_new_chat
+    assert(history_already_connected, 'History regression must start with an initialized ACP session')
+  ]]
+  wait_for('return resume_picker', 'History must also open when ACP initializes before the shortcut subscribes')
+  wait_for(
+    [[return table.concat(vim.api.nvim_buf_get_lines(controls.current_chat().bufnr,0,-1,false),'\n'):find('Resumed fixture history',1,true) ~= nil]],
+    'Already-initialized history must restore the selected session'
   )
   exec [[
     vim.ui.select = saved_select
@@ -497,9 +692,31 @@ local function run()
     local file = assert(vim.uv.fs_open(path, 'w', 384))
     assert(vim.uv.fs_write(file, png))
     assert(vim.uv.fs_close(file))
-    local images = require 'img-clip'
-    assert(images.paste_image({}, path), 'Image plugin must paste an actual file in chat')
-    chat:add_buf_message { role = 'user', content = '\nIMAGE_FIXTURE' }
+    local clipboard = require 'img-clip.clipboard'
+    _G.saved_clipboard = {
+      get_clip_cmd = clipboard.get_clip_cmd,
+      content_is_image = clipboard.content_is_image,
+      save_image = clipboard.save_image,
+    }
+    clipboard.get_clip_cmd = function() return 'fixture' end
+    clipboard.content_is_image = function() return true end
+    clipboard.save_image = function(target)
+      _G.clipboard_image_saved = vim.uv.fs_copyfile(path, target) == true
+      return clipboard_image_saved
+    end
+    chat:add_buf_message { role = 'user', content = 'IMAGE_FIXTURE' }
+  ]]
+  keys '<Esc> ip'
+  wait_for(
+    [[return clipboard_image_saved and table.concat(vim.api.nvim_buf_get_lines(chat.bufnr,0,-1,false),'\n'):find('[Image](',1,true) ~= nil]],
+    'Space ip must paste a clipboard image into the chat'
+  )
+  exec [[
+    for name, callback in pairs(saved_clipboard) do
+      require('img-clip.clipboard')[name] = callback
+    end
+    assert(table.concat(vim.api.nvim_buf_get_lines(chat.bufnr,0,-1,false),'\n'):find('IMAGE_FIXTURE',1,true),
+      'Pasting an image must preserve the existing draft')
     chat:submit()
   ]]
   wait_for(

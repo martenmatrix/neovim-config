@@ -2,8 +2,10 @@
 
 import base64
 import json
+import os
 from pathlib import Path
 import sys
+import time
 
 
 def send(message):
@@ -22,12 +24,12 @@ permission_commands = []
 permission_number = 0
 
 
-def request_status_permission():
+def request_command_permission():
     global permission_number
     permission_number += 1
     command = permission_commands.pop(0)
     tool = {
-        "toolCallId": f"status-{permission_number}", "title": "Show git status",
+        "toolCallId": f"command-{permission_number}", "title": "Run fixture command",
         "kind": "execute", "status": "pending",
         "rawInput": {"command": command, "commands": [command]},
     }
@@ -47,14 +49,21 @@ def request_status_permission():
 
 for line in sys.stdin:
     request = json.loads(line)
+    if path := os.environ.get("NVIM_ACP_FIXTURE_LOG"):
+        with open(path, "a") as log:
+            log.write(json.dumps({
+                "pid": os.getpid(), "cwd": str(Path.cwd()),
+                "method": request.get("method"),
+                "session_cwd": request.get("params", {}).get("cwd"),
+            }) + "\n")
     if "method" not in request:
         assert request["id"] == f"permission-{permission_number}"
         assert request["result"]["outcome"] == {"outcome": "selected", "optionId": "allow_once"}
-        update("tool_call_update", toolCallId=f"status-{permission_number}", status="completed")
+        update("tool_call_update", toolCallId=f"command-{permission_number}", status="completed")
         if permission_commands:
-            request_status_permission()
+            request_command_permission()
         else:
-            update("agent_message_chunk", content={"type": "text", "text": "Fixture status approvals received"})
+            update("agent_message_chunk", content={"type": "text", "text": "Fixture command approvals received"})
             send({"id": permission_prompt, "result": {"stopReason": "end_turn"}})
             permission_prompt = None
         continue
@@ -63,6 +72,7 @@ for line in sys.stdin:
     params = request.get("params", {})
     result = {}
     if method == "initialize":
+        time.sleep(float(os.environ.get("NVIM_ACP_FIXTURE_DELAY", "0")))
         result = {
             "protocolVersion": 1,
             "agentCapabilities": {
@@ -91,20 +101,21 @@ for line in sys.stdin:
     elif method == "session/prompt":
         text = "\n".join(p.get("text", "") for p in params.get("prompt", []))
         response = "Fixture response"
-        if "STATUS_PERMISSIONS_FIXTURE" in text or "FULL_AUTO_PERMISSIONS_FIXTURE" in text:
+        if "FULL_AUTO_PERMISSIONS_FIXTURE" in text:
             permission_prompt = ident
-            permission_commands = (
-                ["printf full-auto-fixture"] if "FULL_AUTO_PERMISSIONS_FIXTURE" in text
-                else ["git status --short --branch", "git --no-pager status -sb"]
-            )
-            request_status_permission()
+            permission_commands = [
+                "printf full-auto-fixture",
+                "git status --short --branch | head -n 1",
+                "cd . && pwd",
+            ]
+            request_command_permission()
             continue
         if "IMAGE_FIXTURE" in text:
             images = [p for p in params["prompt"] if p["type"] == "image"]
             assert len(images) == 1 and images[0]["mimeType"] == "image/png"
             assert base64.b64decode(images[0]["data"], validate=True).startswith(b"\x89PNG\r\n\x1a\n")
             response = "Fixture image received"
-        if "HOLD_FIXTURE" in text:
+        if "HOLD_FIXTURE" in text and "EDIT_FIXTURE" not in text and "FOLLOWUP_FIXTURE" not in text:
             held = ident
             update("agent_message_chunk", content={"type": "text", "text": "Waiting"})
             continue

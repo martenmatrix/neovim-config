@@ -1,6 +1,15 @@
 return {
   'HakonHarnes/img-clip.nvim',
   cmd = 'PasteImage',
+  keys = {
+    {
+      '<leader>ip',
+      function()
+        require('img-clip').paste_image()
+      end,
+      desc = 'Paste image from clipboard',
+    },
+  },
   opts = {
     default = {
       embed_image_as_base64 = false,

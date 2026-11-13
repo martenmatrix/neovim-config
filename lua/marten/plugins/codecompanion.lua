@@ -24,6 +24,13 @@ return {
   dependencies = { 'nvim-lua/plenary.nvim', 'nvim-treesitter/nvim-treesitter', 'saghen/blink.cmp' },
   keys = {
     {
+      '<leader>fa',
+      function()
+        require('codecompanion').actions()
+      end,
+      desc = 'Find CodeCompanion actions',
+    },
+    {
       '<leader>aa',
       function()
         require('marten.core.codecompanion').write(true)
@@ -55,11 +62,23 @@ return {
       desc = 'AI: review changes',
     },
     {
+      '<leader>arb',
+      '<cmd>CodeCompanionCodeReview Branch<CR>',
+      desc = 'AI: review branch changes',
+    },
+    {
+      '<leader>arc',
+      function()
+        require('marten.core.codecompanion').review()
+      end,
+      desc = 'AI: review current pending changes',
+    },
+    {
       '<leader>an',
       function()
-        require('marten.core.codecompanion').new_chat()
+        require('marten.core.worktrees').new()
       end,
-      desc = 'AI: new chat',
+      desc = 'AI: new isolated worktree task',
     },
     {
       '<leader>at',
@@ -98,8 +117,8 @@ return {
     },
   },
   config = function(_, opts)
-    require('marten.core.codecompanion').setup()
     require('codecompanion').setup(opts)
+    require('marten.core.codecompanion').setup()
   end,
   opts = {
     adapters = {
@@ -113,6 +132,7 @@ return {
                 '--stdio',
                 '--model',
                 'claude-opus-5.5',
+                '--experimental',
                 '--reasoning-effort',
                 'high',
                 '--disable-mcp-server',
@@ -161,17 +181,11 @@ return {
             return message
               .. '\n\nOnly create Git commits or push when I explicitly ask for that action. '
               .. 'Finishing a task or reviewing changes is not permission to commit. '
-              .. 'For routine read-only checks, run git status, git --no-pager status, ls, and pwd '
-              .. 'as standalone commands in the session working directory. Do not prepend cd, '
-              .. 'pipe their output, or combine these checks with other operations; run those separately. '
               .. 'Respond in English unless I request another language.'
           end,
         },
         tools = {
           opts = { approval_mode = 'yolo' },
-          run_command = {
-            opts = { safe_commands = { 'git status', 'git --no-pager status', 'ls', 'pwd' } },
-          },
         },
         slash_commands = {
           file = { opts = { provider = 'telescope' } },

@@ -1,4 +1,5 @@
 local M = {}
+local review_context
 
 local function notify(message)
   vim.notify(message, vim.log.levels.INFO, { title = 'CodeCompanion' })
@@ -113,34 +114,37 @@ end
 
 function M.resume()
   local chat = M.new_chat()
-  if chat then
-    local pending = vim.api.nvim_create_autocmd('User', {
-      pattern = 'CodeCompanionACPSessionPost',
-      callback = function(event)
-        if chat.acp_connection and chat.acp_connection.session_id == event.data.session_id then
-          if vim.api.nvim_get_current_buf() == chat.bufnr then
-            require('codecompanion.interactions.chat.slash_commands').new():execute(
-              { label = 'resume', config = require('codecompanion.config').interactions.chat.slash_commands.resume },
-              chat
-            )
-          else
-            notify 'Chat connected. Use /resume there before sending a message.'
-          end
-          return true
-        end
-      end,
-    })
-    vim.defer_fn(function()
-      for _, autocmd in ipairs(vim.api.nvim_get_autocmds { event = 'User', pattern = 'CodeCompanionACPSessionPost' }) do
-        if autocmd.id == pending then
-          vim.api.nvim_del_autocmd(pending)
-          if vim.api.nvim_buf_is_valid(chat.bufnr) then
-            notify 'Session picker did not connect. Check :messages; use /resume in the fresh chat once connected.'
-          end
-        end
-      end
-    end, 30000)
+  if not chat then
+    return
   end
+  notify 'Loading Copilot chat history...'
+  require('codecompanion.interactions.chat.helpers').create_acp_connection(chat, function()
+    if require('codecompanion').buf_get_chat(chat.bufnr) ~= chat then
+      return
+    end
+    local connection = chat.acp_connection
+    if not connection or not connection:is_ready() or not connection.session_id then
+      vim.notify('Could not connect to Copilot chat history. Check :messages.', vim.log.levels.ERROR, {
+        title = 'CodeCompanion',
+      })
+      return
+    end
+    if vim.api.nvim_get_current_buf() ~= chat.bufnr then
+      notify 'Chat connected. Use /resume there before sending a message.'
+      return
+    end
+    if not connection:can_list_sessions() or not connection:can_load_session() then
+      vim.notify('This Copilot ACP connection does not support restoring chat history.', vim.log.levels.WARN, {
+        title = 'CodeCompanion',
+      })
+      return
+    end
+    vim.cmd.stopinsert()
+    require('codecompanion.interactions.chat.slash_commands').new():execute(
+      { label = 'resume', config = require('codecompanion.config').interactions.chat.slash_commands.resume },
+      chat
+    )
+  end)
 end
 
 function M.review()
@@ -149,7 +153,10 @@ function M.review()
     for _, win in ipairs(vim.api.nvim_tabpage_list_wins(tab)) do
       if
         vim.bo[vim.api.nvim_win_get_buf(win)].filetype == 'codecompanion_code_review'
-        and vim.fs.root(vim.fn.getcwd(-1, vim.api.nvim_tabpage_get_number(tab)), '.git') == root
+        and (
+          (review_context and review_context.tab == tab and review_context.returning)
+          or vim.fs.root(vim.fn.getcwd(-1, vim.api.nvim_tabpage_get_number(tab)), '.git') == root
+        )
       then
         vim.api.nvim_set_current_win(win)
         return
@@ -176,8 +183,16 @@ function M.review_goto(method)
     return
   end
   local text = vim.api.nvim_get_current_line()
-  -- Let the native review action resolve the source path and leave its scratch buffers intact.
-  vim.fn.maparg('i', 'n', false, true).callback()
+  local edit_line = vim.fn.maparg('i', 'n', false, true).callback
+  if review_context and review_context.tab == vim.api.nvim_get_current_tabpage() then
+    review_context.returning = true
+    if review_context.origin and vim.api.nvim_tabpage_is_valid(review_context.origin) then
+      -- The native action remembers the origin tab, not its editable file pane.
+      vim.api.nvim_set_current_tabpage(review_context.origin)
+      vim.api.nvim_set_current_win(require('marten.core.windows').ensure_file_window())
+    end
+  end
+  edit_line()
   vim.cmd.stopinsert()
   local source_win, source_buf = vim.api.nvim_get_current_win(), vim.api.nvim_get_current_buf()
   if
@@ -243,16 +258,47 @@ function M.setup()
       end
       return read_file_lines(root, path)
     end
+    -- The native chat hooks use the active cwd, including for background completions.
+    vim.api.nvim_clear_autocmds {
+      group = 'codecompanion.code_review',
+      event = 'User',
+      pattern = { 'CodeCompanionChatSubmitted', 'CodeCompanionChatDone' },
+    }
   end
   vim.api.nvim_create_autocmd('User', {
     group = group,
     pattern = 'CodeCompanionChatCreated',
     callback = function(event)
       local chat = require('codecompanion').buf_get_chat(event.data.bufnr)
+      local cwd = vim.fn.getcwd()
+      vim.b[chat.bufnr].codecompanion_cwd = cwd
+      if chat.adapter.type == 'acp' then
+        -- Startup yields between process spawn and session creation; tabs may change meanwhile.
+        chat.acp_connection = require('codecompanion.acp').new {
+          adapter = chat.adapter,
+          chat = chat,
+          opts = {
+            job = function(command, opts, on_exit)
+              opts.cwd = cwd
+              return vim.system(command, opts, on_exit)
+            end,
+            encode = function(message)
+              if
+                message.method == 'session/new'
+                or message.method == 'session/load'
+                or message.method == 'session/list'
+              then
+                message.params.cwd = cwd
+              end
+              return vim.json.encode(message)
+            end,
+          },
+        }
+      end
       chat:add_callback('on_before_submit', function()
         local baseline = require 'codecompanion.interactions.code_review.baseline'
         local store = require 'codecompanion.interactions.code_review.store'
-        local root = baseline.get_root()
+        local root = vim.fs.root(cwd, '.git')
         if not root or store.round_open(root) or #store.comments(root) > 0 then
           return
         end
@@ -265,10 +311,18 @@ function M.setup()
       end)
       chat:add_callback('on_submitted', function()
         local baseline = require 'codecompanion.interactions.code_review.baseline'
-        local root = baseline.get_root()
+        local root = vim.fs.root(cwd, '.git')
         -- Parsing review feedback closes its round before ACP dispatch.
         if root and baseline.get(root) then
           require('codecompanion.interactions.code_review.store').begin_round(root)
+        end
+      end)
+      chat:add_callback('on_completed', function()
+        local baseline = require 'codecompanion.interactions.code_review.baseline'
+        local store = require 'codecompanion.interactions.code_review.store'
+        local root = vim.fs.root(cwd, '.git')
+        if root and store.round_open(root) and baseline.worktree_matches(root) then
+          store.clear_round(root)
         end
       end)
     end,
@@ -284,6 +338,12 @@ function M.setup()
     group = group,
     pattern = { 'codecompanion', 'codecompanion_code_review' },
     callback = function(event)
+      if event.match == 'codecompanion_code_review' then
+        review_context = {
+          tab = vim.api.nvim_get_current_tabpage(),
+          origin = vim.api.nvim_list_tabpages()[vim.fn.tabpagenr '#'],
+        }
+      end
       for lhs, mapping in pairs(require 'marten.core.navigation') do
         vim.keymap.set('n', lhs, mapping.rhs, { buffer = event.buf, expr = mapping.expr, desc = mapping.desc })
       end
