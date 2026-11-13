@@ -526,6 +526,74 @@ local function run()
     tree_chat:close()
   ]]
   wait_for('return vim.uv.kill(closed_agent_pid, 0) == nil', 'Closing the chat must stop its ACP process')
+  exec(
+    [[
+    local directory = ...
+    local root = directory .. '/.git/branch-review'
+    vim.fn.mkdir(root .. '/dependency', 'p')
+    local function git(...)
+      local result = vim.system({ 'git', '-C', root, ... }, { text = true }):wait()
+      assert(result.code == 0, result.stderr)
+      return vim.trim(result.stdout)
+    end
+    local function module_git(...)
+      return git('-C', root .. '/dependency', ...)
+    end
+    git('init', '-q')
+    module_git('init', '-q')
+    vim.fn.writefile({ "return 'dependency'" }, root .. '/dependency/module.lua')
+    module_git('add', '.')
+    module_git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.com',
+      'commit', '-qm', 'chore(): dependency fixture')
+    vim.fn.writefile({ "return 'original'" }, root .. '/main.lua')
+    vim.fn.writefile({ 'original file' }, root .. '/replaced.txt')
+    vim.fn.writefile({ 'deleted file' }, root .. '/deleted.txt')
+    git('add', '.')
+    git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.com',
+      'commit', '-qm', 'chore(): branch fixture')
+    local head = git('rev-parse', 'HEAD')
+    git('branch', 'fixture-base', head)
+    git('config', 'init.defaultBranch', 'fixture-base')
+    vim.fn.writefile({ "return 'updated dependency'" }, root .. '/dependency/module.lua')
+    module_git('add', '.')
+    module_git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.com',
+      'commit', '-qm', 'chore(): update dependency fixture')
+    assert(vim.uv.fs_unlink(root .. '/replaced.txt'))
+    vim.fn.mkdir(root .. '/replaced.txt')
+    vim.fn.writefile({ "return 'nested'" }, root .. '/replaced.txt/nested.lua')
+    assert(vim.uv.fs_unlink(root .. '/deleted.txt'))
+    vim.fn.writefile({ "return 'staged'" }, root .. '/main.lua')
+    git('add', 'main.lua')
+    local index = git('write-tree')
+    vim.fn.writefile({ "return 'working'" }, root .. '/main.lua')
+    vim.api.nvim_set_current_win(require('marten.core.windows').ensure_file_window())
+    vim.cmd.cd(root)
+    vim.cmd.edit(root .. '/main.lua')
+    vim.cmd.CodeCompanionCodeReview 'Branch'
+    assert(vim.bo.filetype == 'codecompanion_code_review',
+      'Branch review must open with changed gitlinks and files replaced by directories')
+    local checklist = require 'codecompanion.interactions.code_review.checklist'
+    local review = assert(checklist.build { root = root })
+    assert(review.diffs['main.lua'] and review.diffs['main.lua'].to.lines[1] == "return 'working'",
+      'Branch review must still read ordinary files from the worktree')
+    assert(review.diffs['deleted.txt'] and #review.diffs['deleted.txt'].to.lines == 0
+      and review.diffs['deleted.txt'].from.lines[1] == 'deleted file',
+      'Branch review must retain deleted-file hunks')
+    assert(review.diffs['replaced.txt'] and #review.diffs['replaced.txt'].to.lines == 0
+      and review.diffs['replaced.txt'].from.lines[1] == 'original file',
+      'A file replaced by a directory must remain reviewable as a deletion')
+    assert(review.diffs['replaced.txt/nested.lua']
+      and review.diffs['replaced.txt/nested.lua'].to.lines[1] == "return 'nested'",
+      'Branch review must include files added inside a replacement directory')
+    assert(not review.diffs.dependency, 'Gitlinks must not be read as text files')
+    checklist.discard(review.diffs)
+    assert(git('rev-parse', 'HEAD') == head and git('write-tree') == index,
+      'Branch review with directories must preserve HEAD and the real staging index')
+    require('codecompanion.interactions.code_review.window').close()
+    vim.cmd.cd(directory)
+  ]],
+    artifacts
+  )
   assert(exec 'return #fixture_errors == 0', exec 'return table.concat(fixture_errors, "\\n")')
 end
 

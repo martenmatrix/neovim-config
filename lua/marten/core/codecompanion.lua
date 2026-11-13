@@ -233,6 +233,17 @@ end
 
 function M.setup()
   local group = vim.api.nvim_create_augroup('marten_codecompanion', { clear = true })
+  if require('codecompanion.config').interactions.code_review.enabled then
+    local checklist = require 'codecompanion.interactions.code_review.checklist'
+    local read_file_lines = checklist.read_file_lines
+    checklist.read_file_lines = function(root, path)
+      -- Gitlinks and files replaced by directories have no working text.
+      if vim.fn.isdirectory(vim.fs.joinpath(root, path)) == 1 then
+        return {}
+      end
+      return read_file_lines(root, path)
+    end
+  end
   vim.api.nvim_create_autocmd('User', {
     group = group,
     pattern = 'CodeCompanionChatCreated',
