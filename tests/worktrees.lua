@@ -69,6 +69,8 @@ local function run()
       git(directory, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.com', 'commit', '-qm', 'chore(): fixture')
     end
     _G.source_head = git(source, 'rev-parse', 'HEAD')
+    git(source, 'branch', 'fixture-base', source_head)
+    git(source, 'config', 'init.defaultBranch', 'fixture-base')
     vim.fn.writefile({ 'staged work' }, source .. '/existing.txt')
     git(source, 'add', 'existing.txt')
     vim.fn.writefile({ 'unstaged work' }, source .. '/existing.txt')
@@ -274,6 +276,55 @@ local function run()
     assert(vim.bo.filetype == 'codecompanion_code_review', 'Native review must also open in the second task')
     require('codecompanion.interactions.code_review.window').close()
     assert(#baseline.diff(path_a) == 2, 'Reviewing B must not consume A changes')
+    vim.fn.writefile({ 'Task A only' }, path_a .. '/task-a.txt')
+    vim.fn.writefile({ 'Task B only' }, path_b .. '/task-b.txt')
+    local index_a, index_b = git(path_a, 'write-tree'), git(path_b, 'write-tree')
+    local function assert_task_review(path, own, other)
+      assert(vim.bo.filetype == 'codecompanion_code_review', 'Task branch review must open its checklist')
+      assert(vim.fs.root(vim.fn.getcwd(), '.git') == path,
+        'The review tab must retain ' .. path .. ', got ' .. vim.fn.getcwd())
+      local text = table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), '\n')
+      assert(text:find(own, 1, true) and not text:find(other, 1, true)
+        and not text:find('existing.txt', 1, true), 'Task branch reviews must not include another checkout changes: ' .. text)
+    end
+    worktrees.open(path_a)
+    vim.cmd.stopinsert()
+    vim.cmd.CodeCompanionCodeReview 'Branch'
+    assert_task_review(path_a, 'task-a.txt', 'task-b.txt')
+    local clients, definition = vim.lsp.get_clients, vim.lsp.buf.definition
+    vim.lsp.get_clients = function() return { {} } end
+    vim.lsp.buf.definition = function() end
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+      if vim.wo[win].statuscolumn:find('codecompanion.interactions.code_review.window', 1, true) then
+        vim.api.nvim_set_current_win(win)
+        for row, text in ipairs(vim.api.nvim_buf_get_lines(0, 0, -1, false)) do
+          if text == "return 'changed first'" then
+            vim.api.nvim_win_set_cursor(win, { row, 0 })
+            controls.review_goto('definition')
+            break
+          end
+        end
+        break
+      end
+    end
+    vim.lsp.get_clients, vim.lsp.buf.definition = clients, definition
+    assert(vim.api.nvim_get_current_tabpage() == tab_a, 'Symbol navigation must return to the owning task')
+    worktrees.open(path_b)
+    vim.cmd.stopinsert()
+    controls.review()
+    assert_task_review(path_b, 'task-b.txt', 'task-a.txt')
+    vim.cmd.CodeCompanionCodeReview 'Branch'
+    assert_task_review(path_b, 'task-b.txt', 'task-a.txt')
+    worktrees.open(path_a)
+    vim.cmd.stopinsert()
+    controls.review()
+    assert_task_review(path_a, 'task-a.txt', 'task-b.txt')
+    assert(baseline.get(path_a) == source_head and baseline.get(path_b) == source_head,
+      'Switching reviews must keep each worktree branch baseline at its own fork point')
+    assert(git(path_a, 'rev-parse', 'HEAD') == source_head and git(path_b, 'rev-parse', 'HEAD') == source_head
+      and git(path_a, 'write-tree') == index_a and git(path_b, 'write-tree') == index_b,
+      'Switching branch reviews must not change either worktree HEAD or staging index')
+    require('codecompanion.interactions.code_review.window').close()
     worktrees.open(path_a)
     _G.chat_a_buffer = a.bufnr
     a.ui:hide()

@@ -154,8 +154,12 @@ function M.review()
       if
         vim.bo[vim.api.nvim_win_get_buf(win)].filetype == 'codecompanion_code_review'
         and (
-          (review_context and review_context.tab == tab and review_context.returning)
-          or vim.fs.root(vim.fn.getcwd(-1, vim.api.nvim_tabpage_get_number(tab)), '.git') == root
+          (
+            review_context
+            and review_context.tab == tab
+            and review_context.origin == vim.api.nvim_get_current_tabpage()
+            and review_context.returning
+          ) or vim.fs.root(vim.fn.getcwd(-1, vim.api.nvim_tabpage_get_number(tab)), '.git') == root
         )
       then
         vim.api.nvim_set_current_win(win)
@@ -257,6 +261,18 @@ function M.setup()
         return {}
       end
       return read_file_lines(root, path)
+    end
+    local window = require 'codecompanion.interactions.code_review.window'
+    local close = window.close
+    window.close = function()
+      local context = review_context
+      local closing_here = context and context.tab == vim.api.nvim_get_current_tabpage()
+      close()
+      review_context = nil
+      -- Branch review resolves its root after closing; do not inherit a neighbouring task's cwd.
+      if closing_here and context.origin and vim.api.nvim_tabpage_is_valid(context.origin) then
+        vim.api.nvim_set_current_tabpage(context.origin)
+      end
     end
     -- The native chat hooks use the active cwd, including for background completions.
     vim.api.nvim_clear_autocmds {
